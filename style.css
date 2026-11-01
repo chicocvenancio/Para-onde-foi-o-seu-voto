@@ -8,6 +8,8 @@
   --accent-soft: #e3f1ea;
   --warn: #8a5a00;
   --warn-soft: #fff4dc;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Source Sans 3", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --sat: 55%;
   --lum: 45%;
   color-scheme: light;
@@ -28,17 +30,17 @@
 * { box-sizing: border-box; }
 body {
   margin: 0; background: var(--bg); color: var(--ink);
-  font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 17px/1.55 var(--font-body);
 }
-.wrap { max-width: 860px; margin: 0 auto; padding: 0 16px; }
+.wrap { max-width: 860px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-h1, h2, h3 { line-height: 1.2; margin: 0 0 .5em; }
-h1 { font-size: clamp(2rem, 6vw, 3rem); letter-spacing: -.02em; }
+h1, h2, h3 { line-height: 1.15; margin: 0 0 .5em; font-family: var(--font-display); text-wrap: balance; }
+h1 { font-size: clamp(2.2rem, 7vw, 3.4rem); font-weight: 800; letter-spacing: -.03em; }
 h2 { font-size: 1.5rem; }
 h3 { font-size: 1.05rem; }
 code { background: var(--accent-soft); padding: 0 .3em; border-radius: 4px; font-size: .9em; }
 
-.topo { padding: 56px 0 28px; }
+.topo { padding-block: 56px 28px; }
 .kicker { text-transform: uppercase; letter-spacing: .08em; font-size: .75rem; font-weight: 600; color: var(--accent); margin: 0 0 .6em; }
 .lead { font-size: 1.15rem; color: var(--muted); max-width: 640px; margin: 0; }
 
@@ -116,9 +118,11 @@ tr.seu td { background: var(--accent-soft); font-weight: 600; }
 .modelo { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
 .modelo p, .modelo li { color: var(--muted); }
 .fonte { font-size: .85rem; }
-.rodape { color: var(--muted); font-size: .85rem; padding-bottom: 40px; }
+.rodape { color: var(--muted); font-size: .85rem; padding-block: 0 40px; }
 
 @media (max-width: 520px) {
   .card { padding: 18px; }
   .passo { grid-template-columns: 1fr; gap: 8px; }
 }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
