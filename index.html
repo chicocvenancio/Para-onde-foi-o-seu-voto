@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Para Onde Foi Meu Voto</title>
+  <meta name="description" content="Descubra quais deputados federais o seu voto ajudou a eleger e entenda o sistema proporcional da Câmara dos Deputados.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topo">
+    <div class="wrap">
+      <p class="kicker">Câmara dos Deputados · sistema proporcional</p>
+      <h1>Para onde foi o seu voto?</h1>
+      <p class="lead">No Brasil, o voto para deputado federal vai primeiro para o <strong>partido</strong> (ou federação).
+        Conte como você votou e veja quais deputados o seu voto ajudou a eleger — e em que proporção.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card quiz" aria-labelledby="quiz-titulo">
+      <h2 id="quiz-titulo" class="sr-only">Quiz</h2>
+
+      <div class="passo">
+        <span class="num">1</span>
+        <div class="campo-linha">
+          <label for="uf">Em qual estado você vota?</label>
+          <div class="linha">
+            <select id="uf"><option value="">Escolha o estado…</option></select>
+            <select id="ano" aria-label="Eleição" hidden></select>
+          </div>
+        </div>
+      </div>
+
+      <fieldset class="passo" id="passo-tipo" disabled>
+        <span class="num">2</span>
+        <div>
+          <legend>Como você votou para deputado federal?</legend>
+          <div class="opcoes" role="radiogroup">
+            <label class="opcao"><input type="radio" name="tipo" value="candidato">
+              <span class="titulo">Em um candidato</span><span class="desc">Digitei o número de 4 dígitos</span></label>
+            <label class="opcao"><input type="radio" name="tipo" value="legenda">
+              <span class="titulo">Só no partido</span><span class="desc">Digitei os 2 dígitos da legenda</span></label>
+            <label class="opcao"><input type="radio" name="tipo" value="branco">
+              <span class="titulo">Em branco</span><span class="desc">Apertei a tecla BRANCO</span></label>
+            <label class="opcao"><input type="radio" name="tipo" value="nulo">
+              <span class="titulo">Anulei</span><span class="desc">Digitei um número que não existe</span></label>
+          </div>
+        </div>
+      </fieldset>
+
+      <div class="passo" id="passo-escolha" hidden>
+        <span class="num">3</span>
+        <div class="campo-linha" id="escolha-candidato" hidden>
+          <label for="busca">Qual candidato? <span class="dica">nome ou número</span></label>
+          <div class="combo">
+            <input id="busca" type="search" autocomplete="off" placeholder="Ex.: Maria ou 1234" role="combobox" aria-expanded="false" aria-controls="sugestoes">
+            <ul id="sugestoes" role="listbox" hidden></ul>
+          </div>
+        </div>
+        <div class="campo-linha" id="escolha-legenda" hidden>
+          <label for="partido">Qual partido?</label>
+          <select id="partido"></select>
+        </div>
+      </div>
+
+      <p class="aviso" id="aviso" hidden></p>
+    </section>
+
+    <section id="resultado" class="card resultado" hidden aria-live="polite"></section>
+
+    <section class="explica" aria-labelledby="como">
+      <h2 id="como">Como funciona a eleição para a Câmara</h2>
+      <div class="grade">
+        <article>
+          <h3>1. O voto vai para o partido</h3>
+          <p>A Câmara usa o sistema <strong>proporcional de lista aberta</strong>. Votando em um candidato ou só na legenda,
+            o voto soma para o partido ou federação. As vagas são do partido; depois elas são ocupadas pelos seus candidatos mais votados.</p>
+        </article>
+        <article>
+          <h3>2. Quociente eleitoral</h3>
+          <p>Votos válidos do estado ÷ número de vagas. É o “preço” aproximado de uma cadeira.
+            Votos em branco e nulos <strong>não</strong> são válidos e não entram nessa conta.</p>
+        </article>
+        <article>
+          <h3>3. Quociente partidário</h3>
+          <p>Votos do partido ÷ quociente eleitoral, sem a parte fracionária: é quantas vagas o partido ganha de saída.
+            Para ficar com uma delas, o candidato precisa de pelo menos 10% do quociente eleitoral.</p>
+        </article>
+        <article>
+          <h3>4. Sobras</h3>
+          <p>As vagas que restam vão para as maiores <strong>médias</strong> (votos do partido ÷ vagas já obtidas + 1).
+            As regras de quem pode disputar as sobras mudaram em 2021 e foram revistas pelo STF em 2024.</p>
+        </article>
+        <article>
+          <h3>5. Puxadores e caronas</h3>
+          <p>Um candidato com muitos votos pode “puxar” colegas de partido: o excedente dele ajuda a pagar as vagas de outros.
+            Por isso pode ser eleito alguém com menos votos que um candidato não eleito de outro partido.</p>
+        </article>
+        <article>
+          <h3>6. Branco e nulo</h3>
+          <p>Não vão para ninguém e não “anulam a eleição”. Como ficam fora dos votos válidos,
+            apenas reduzem o quociente eleitoral — o peso de cada voto válido aumenta um pouco.</p>
+        </article>
+        <article>
+          <h3>7. Federações</h3>
+          <p>Partidos federados (desde 2022) funcionam como um só partido: os votos de todos são somados
+            e as vagas vão para os mais votados da federação, qualquer que seja o partido de cada um.</p>
+        </article>
+        <article>
+          <h3>8. Quantas vagas cada estado tem</h3>
+          <p>As cadeiras são divididas entre os estados conforme a população, com mínimo de 8 e máximo de 70.
+            O número de vagas do seu estado aparece no resultado.</p>
+        </article>
+      </div>
+
+      <details class="modelo">
+        <summary>Como calculamos a proporção do seu voto</summary>
+        <p>A lei não diz qual eleito “recebeu” cada voto: os votos são do partido. Para mostrar a proporção, usamos um modelo
+          simples e transparente, parecido com a transferência de votos:</p>
+        <ol>
+          <li>Cada eleito de um partido custa o mesmo número de votos: <em>votos do partido ÷ vagas conquistadas</em>.</li>
+          <li>Cada eleito usa primeiro os votos que recebeu diretamente, até completar esse custo.</li>
+          <li>O que sobra — o excedente de quem passou do custo, os votos de candidatos não eleitos e os votos de legenda —
+            completa a parte que falta aos eleitos que ficaram abaixo do custo, na proporção do que falta a cada um.</li>
+        </ol>
+        <p>Assim, todo voto válido de um partido que elegeu alguém é repartido entre os eleitos desse partido, e a soma dá 100%.</p>
+        <p class="fonte">Fonte: resultados oficiais do Tribunal Superior Eleitoral (Portal de Dados Abertos do TSE), situação na totalização.
+          Recontagens ou decisões judiciais posteriores podem ter mudado alguns eleitos.</p>
+      </details>
+    </section>
+  </main>
+
+  <footer class="wrap rodape">Projeto educativo, sem vínculo com o TSE ou com a Câmara dos Deputados.</footer>
+
+  <script src="engine.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
