@@ -7,6 +7,8 @@ Site educativo sobre o sistema proporcional da Câmara dos Deputados. O usuário
 
 Dados das eleições de 2022 e 2026, do Portal de Dados Abertos do TSE.
 
+Privacidade: o cálculo roda no navegador e a página não faz nenhuma requisição a terceiros (sem analytics, cookies ou CDN; as fontes estão em `fonts/`, sob a licença SIL Open Font License).
+
 ## Gerar os dados (TSE)
 
 ```bash
