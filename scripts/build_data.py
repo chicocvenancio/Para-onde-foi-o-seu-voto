@@ -41,8 +41,14 @@ def baixar(nome: str, ano: int) -> Path:
         print(f"baixando {url}", file=sys.stderr)
         tmp = destino.with_suffix(".part")
         with urllib.request.urlopen(url) as r, open(tmp, "wb") as f:
+            total = int(r.headers.get("Content-Length") or 0)
+            feito = 0
             while chunk := r.read(1 << 20):
                 f.write(chunk)
+                feito += len(chunk)
+                if total:
+                    print(f"\r  {feito >> 20} / {total >> 20} MB", end="", file=sys.stderr, flush=True)
+            print(file=sys.stderr)
         tmp.rename(destino)
     return destino
 
@@ -113,7 +119,7 @@ def processar(ano: int, uf: str, zips: dict) -> dict | None:
     def grupo(row):
         gid, sigla, nome = chave_grupo(row)
         g = grupos.setdefault(gid, {"id": gid, "sigla": sigla, "nome": nome,
-                                    "partidos": set(), "legenda": 0})
+                                    "partidos": set(), "legenda": 0, "nominais_oficial": 0})
         g["partidos"].add(row["SG_PARTIDO"].strip())
         return gid
 
@@ -142,9 +148,12 @@ def processar(ano: int, uf: str, zips: dict) -> dict | None:
     for row in linhas(zips["partido"], uf):
         if not eh_dep_fed(row):
             continue
-        leg = num(col(row, "QT_VOTOS_LEGENDA_VALIDOS", "QT_VOTOS_LEGENDA"))
+        # Total de legenda inclui votos nominais de candidatos com registro negado
+        # que a lei manda contar para o partido ("convertidos em legenda").
+        leg = num(col(row, "QT_TOTAL_VOTOS_LEG_VALIDOS", "QT_VOTOS_LEGENDA_VALIDOS", "QT_VOTOS_LEGENDA"))
         gid = grupo(row)
         grupos[gid]["legenda"] += leg
+        grupos[gid]["nominais_oficial"] += num(col(row, "QT_VOTOS_NOMINAIS_VALIDOS"))
         partidos_legenda[row["SG_PARTIDO"].strip()] += leg
 
     totais = defaultdict(int)
@@ -153,14 +162,14 @@ def processar(ano: int, uf: str, zips: dict) -> dict | None:
             continue
         for campo in ("QT_APTOS", "QT_COMPARECIMENTO", "QT_ABSTENCOES", "QT_VOTOS_BRANCOS",
                       "QT_VOTOS_NULOS", "QT_TOTAL_VOTOS_NULOS", "QT_VOTOS_NOMINAIS_VALIDOS",
-                      "QT_TOTAL_VOTOS_LEG_VALIDOS", "QT_TOTAL_VOTOS_ANUL_SUBJUD"):
+                      "QT_TOTAL_VOTOS_LEG_VALIDOS", "QT_TOTAL_VOTOS_ANUL_SUBJUD", "QT_TOTAL_VOTOS_VALIDOS"):
             if campo in row:
                 totais[campo] += num(row[campo])
 
     lista_grupos = []
     for g in grupos.values():
         membros = [c for c in cands.values() if c["g"] == g["id"]]
-        nominais = sum(c["v"] for c in membros)
+        nominais = g["nominais_oficial"] or sum(c["v"] for c in membros)
         lista_grupos.append({
             "id": g["id"], "sigla": g["sigla"], "nome": g["nome"],
             "partidos": sorted(g["partidos"]),
@@ -171,6 +180,9 @@ def processar(ano: int, uf: str, zips: dict) -> dict | None:
 
     validos = sum(g["nominais"] + g["legenda"] for g in lista_grupos)
     vagas = sum(g["vagas"] for g in lista_grupos)
+    oficial = totais.get("QT_TOTAL_VOTOS_VALIDOS")
+    if oficial and oficial != validos:
+        print(f"  aviso {ano} {uf}: válidos somados {validos} != oficial {oficial}", file=sys.stderr)
     nulos = totais.get("QT_TOTAL_VOTOS_NULOS") or totais.get("QT_VOTOS_NULOS", 0)
 
     lista_cands = sorted(cands.values(), key=lambda c: -c["v"])
