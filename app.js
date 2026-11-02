@@ -43,7 +43,7 @@
   const fmt = new Intl.NumberFormat("pt-BR");
   const fmtPct = (x) => {
     const p = x * 100;
-    const casas = p >= 10 ? 0 : p >= 1 ? 1 : 2;
+    const casas = Math.round(p * 10) / 10 >= 10 ? 0 : Math.round(p * 100) / 100 >= 1 ? 1 : 2;
     return p.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas }) + "%";
   };
   const semAcento = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -285,6 +285,78 @@
     setTimeout(() => { botao.textContent = rotulo; }, 3000);
   }
 
+  // ---------- imagem para Instagram (Stories e Feed) ----------
+
+  function specCartao(r, escolha) {
+    const g = r.grupo;
+    const eFed = g && g.id[0] === "F";
+    const spec = {
+      kicker: `Deputado federal · ${NOMES_UF[dados.uf]} · ${dados.ano}`,
+      endereco: BASE.host + BASE.pathname.replace(/\/$/, ""),
+      icone: url("img/favicon.svg"),
+      partes: r.partes.map((p) => ({ nome: p.cand.nome, detalhe: p.cand.partido, pct: fmtPct(p.frac), frac: p.frac })),
+    };
+    if (r.tipo === "branco" || r.tipo === "nulo") {
+      const qtd = r.tipo === "branco" ? dados.brancos : dados.nulos;
+      spec.destaque = r.tipo === "branco" ? "Votei em branco" : "Votei nulo";
+      spec.frase = `Meu voto não foi para ninguém: votos ${r.tipo === "branco" ? "em branco" : "nulos"} não vão para nenhum candidato nem partido.`;
+      spec.numero = { valor: fmt.format(qtd), rotulo: `eleitores votaram ${r.tipo === "branco" ? "em branco" : "nulo"} ${emUF(dados.uf)}.` };
+      return spec;
+    }
+    const c = r.candidato;
+    spec.destaque = r.tipo === "candidato" ? `Votei em ${c.nome} (${c.partido})` : `Votei na legenda ${escolha.partido}`;
+    if (!r.partes.length) {
+      spec.frase = `${eFed ? "A federação" : "O partido"} ${g.sigla} não conquistou vagas ${emUF(dados.uf)}, então meu voto não elegeu ninguém.`;
+      spec.numero = { valor: fmt.format(r.analise.total), rotulo: `votos ${eFed ? "da federação" : "do partido"}, para um quociente eleitoral de ${fmt.format(Math.round(Motor.quocienteEleitoral(dados)))}.` };
+      return spec;
+    }
+    const meu = c && r.partes.find((p) => p.cand === c);
+    if (r.tipo === "legenda") spec.frase = `O voto foi ${eFed ? `para a federação ${g.sigla}` : `para o partido ${g.sigla}`} e ajudou a eleger:`;
+    else if (!meu) spec.frase = `${gen(c, "Ele", "Ela")} não foi ${gen(c, "eleito", "eleita")}, mas meu voto ajudou a eleger:`;
+    else if (r.partes.length === 1) spec.frase = `${gen(c, "Ele foi eleito", "Ela foi eleita")} e todo o meu voto ficou com ${gen(c, "ele", "ela")}.`;
+    else spec.frase = `${fmtPct(meu.frac)} do meu voto ficou com ${gen(c, "ele", "ela")} e o resto ajudou a eleger ${eFed ? "colegas da federação" : "colegas de partido"}:`;
+    return spec;
+  }
+
+  function nomeArquivo(escolha, formato) {
+    return `para-onde-foi-meu-voto-${rotaAtual(escolha).replace(/\//g, "-")}-${formato === "story" ? "stories" : "feed"}.png`;
+  }
+
+  // As imagens são geradas assim que o resultado aparece: o iPhone só abre o menu de
+  // compartilhar logo depois do toque, então não dá para gerar a imagem só no clique.
+  function prepararImagens(spec, escolha) {
+    const imagens = {};
+    for (const formato of ["story", "feed"]) {
+      imagens[formato] = Cartao.desenhar(spec, formato)
+        .then((blob) => new File([blob], nomeArquivo(escolha, formato), { type: "image/png" }))
+        .catch(() => null);
+    }
+    return imagens;
+  }
+
+  async function compartilharImagem(botao, arquivoPromessa, rotulo) {
+    const arquivo = await arquivoPromessa;
+    if (!arquivo) { botao.textContent = "Não foi possível gerar a imagem"; return; }
+    if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
+      try {
+        // Só o arquivo: com texto ou link junto, o Instagram às vezes compartilha só o texto.
+        await navigator.share({ files: [arquivo] });
+        return;
+      } catch (e) {
+        if (e && e.name === "AbortError") return;
+      }
+    }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(arquivo);
+    a.download = arquivo.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    botao.textContent = "Imagem baixada";
+    setTimeout(() => { botao.textContent = rotulo; }, 3000);
+  }
+
   async function compartilhar(botao, dadosCompartilhar) {
     const { titulo, texto, link } = dadosCompartilhar;
     if (navigator.share) {
@@ -421,6 +493,13 @@
         <div class="redes" aria-label="Compartilhar em">${botoesRedes(share.texto, share.link)}
           <button type="button" class="rede botao-copiar-link">Copiar link</button></div>
         <textarea class="texto-compartilhar" rows="3" readonly aria-label="Texto para compartilhar" hidden></textarea>
+        <div class="imagens">
+          <span class="rotulo-imagens">Imagem para Instagram e outras redes</span>
+          <div class="redes">
+            <button type="button" class="rede botao-imagem" data-formato="story">Stories (vertical)</button>
+            <button type="button" class="rede botao-imagem" data-formato="feed">Feed (quadrada)</button>
+          </div>
+        </div>
       </div>`;
 
     el.resultado.innerHTML = html;
@@ -429,6 +508,15 @@
     el.resultado.querySelector(".botao-compartilhar").addEventListener("click", (ev) => compartilhar(ev.currentTarget, share));
     el.resultado.querySelector(".botao-copiar-link").addEventListener("click", (ev) =>
       copiar(share.link, ev.currentTarget, "Copiar link", "Link copiado"));
+    if (window.Cartao) {
+      const imagens = prepararImagens(specCartao(r, escolha), escolha);
+      el.resultado.querySelectorAll(".botao-imagem").forEach((b) => {
+        const rotulo = b.textContent;
+        b.addEventListener("click", () => compartilharImagem(b, imagens[b.dataset.formato], rotulo));
+      });
+    } else {
+      el.resultado.querySelector(".imagens").hidden = true;
+    }
     el.resultado.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 

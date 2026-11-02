@@ -9,7 +9,7 @@ const path = require("node:path");
 const RAIZ = path.resolve(__dirname, "..");
 const html = fs.readFileSync(path.join(RAIZ, "index.html"), "utf8");
 
-for (const nome of ["app.js", "engine.js", "style.css"]) {
+for (const nome of ["app.js", "engine.js", "cartao.js", "style.css"]) {
   test(`index.html usa a versão atual de ${nome}`, () => {
     const hash = crypto.createHash("sha256").update(fs.readFileSync(path.join(RAIZ, nome))).digest("hex").slice(0, 10);
     assert.ok(html.includes(`"${nome}?v=${hash}"`), `rode python3 scripts/versionar.py (esperado ${nome}?v=${hash})`);

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Atualiza o ?v=<hash> de app.js, engine.js e style.css no index.html,
+"""Atualiza o ?v=<hash> de app.js, engine.js, cartao.js e style.css no index.html,
 e da imagem de prévia (og:image) no index.html e no 404.html.
 
 O GitHub Pages manda o navegador guardar cada arquivo por 10 minutos. Com o hash do
@@ -15,7 +15,7 @@ import re
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
-ARQUIVOS = ("app.js", "engine.js", "style.css")
+ARQUIVOS = ("app.js", "engine.js", "cartao.js", "style.css")
 IMAGEM = "img/compartilhar.png"
 
 
