@@ -23,7 +23,7 @@
   <meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#14161a" media="(prefers-color-scheme: dark)">
   <link rel="preload" href="fonts/source-sans-3-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="style.css?v=e94e402e41">
+  <link rel="stylesheet" href="style.css?v=8e51226b0f">
 </head>
 <body>
   <header class="topo">
@@ -138,12 +138,17 @@
         <p>A lei não diz qual eleito “recebeu” cada voto: os votos são do partido. Para mostrar a proporção, usamos um modelo
           simples e transparente, parecido com a transferência de votos:</p>
         <ol>
-          <li>Cada eleito de um partido custa o mesmo número de votos: <em>votos do partido ÷ vagas conquistadas</em>.</li>
+          <li>Cada eleito de um partido custa o mesmo número de votos: o <em>quociente eleitoral</em>, ou menos, se o partido
+            ganhou vaga nas sobras com menos votos que isso (aí o custo é <em>votos do partido ÷ vagas conquistadas</em>).</li>
           <li>Cada eleito usa primeiro os votos que recebeu diretamente, até completar esse custo.</li>
-          <li>O que sobra — o excedente de quem passou do custo, os votos de candidatos não eleitos e os votos de legenda —
+          <li>O resto — o excedente de quem passou do custo, os votos de candidatos não eleitos e os votos de legenda —
             completa a parte que falta aos eleitos que ficaram abaixo do custo, na proporção do que falta a cada um.</li>
+          <li>Se ainda sobrarem votos, eles são a <strong>sobra</strong> do partido: disputaram as últimas vagas do estado, mas
+            não alcançaram mais uma cadeira, então não elegeram ninguém. Cada voto do resto vai para a sobra na mesma proporção.</li>
         </ol>
-        <p>Assim, todo voto válido de um partido que elegeu alguém é repartido entre os eleitos desse partido, e a soma dá 100%.</p>
+        <p>Assim, cada eleito soma exatamente o custo da vaga, e eleitos mais sobra dão 100% dos votos do partido.
+          Às vezes a sobra é grande porque o partido teve votos para mais vagas, mas os outros candidatos não chegaram
+          aos 10% do quociente exigidos para ocupar uma vaga.</p>
         <p class="fonte">Fonte: resultados oficiais do Tribunal Superior Eleitoral (Portal de Dados Abertos do TSE), situação na totalização.
           Recontagens ou decisões judiciais posteriores podem ter mudado alguns eleitos.</p>
       </details>
@@ -152,8 +157,8 @@
 
   <footer class="wrap rodape">Projeto educativo, sem vínculo com o TSE ou com a Câmara dos Deputados. · <a href="https://github.com/chicocvenancio/Para-onde-foi-o-seu-voto">Código aberto no GitHub</a></footer>
 
-  <script src="engine.js?v=626e42187b"></script>
-  <script src="cartao.js?v=eaf8a64d7f"></script>
-  <script src="app.js?v=0a20fe9e22"></script>
+  <script src="engine.js?v=1281d87219"></script>
+  <script src="cartao.js?v=071b9d42b6"></script>
+  <script src="app.js?v=7e8d463490"></script>
 </body>
 </html>

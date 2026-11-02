@@ -256,9 +256,10 @@
     }
     const fim = " Descubra para onde foi o seu:";
     const c = r.candidato;
+    const eSobra = r.sobra ? `, e ${fmtPct(r.sobra)} foi para a sobra, que não elegeu ninguém` : "";
     if (r.tipo === "legenda") {
       return r.partes.length
-        ? `Meu voto na legenda ${escolha.partido} ${onde} ajudou a eleger ${listaEleitos(r.partes)}.${fim}`
+        ? `Meu voto na legenda ${escolha.partido} ${onde} ajudou a eleger ${listaEleitos(r.partes)}${eSobra}.${fim}`
         : `Meu voto na legenda ${escolha.partido} ${onde} não ajudou a eleger ninguém: ${r.grupo.id[0] === "F" ? "a federação" : "o partido"} não conquistou vagas.${fim}`;
     }
     const votei = `Votei em ${c.nome} (${c.partido}) ${onde}`;
@@ -267,16 +268,20 @@
     }
     const meu = r.partes.find((p) => p.cand === c);
     if (!meu) {
-      return `${votei}. ${gen(c, "Ele", "Ela")} não foi ${gen(c, "eleito", "eleita")}, mas meu voto ajudou a eleger ${listaEleitos(r.partes)}.${fim}`;
+      return `${votei}. ${gen(c, "Ele", "Ela")} não foi ${gen(c, "eleito", "eleita")}, mas meu voto ajudou a eleger ${listaEleitos(r.partes)}${eSobra}.${fim}`;
     }
     if (r.partes.length === 1) {
-      return `${votei}: ${gen(c, "ele foi eleito", "ela foi eleita")} e todo o meu voto ficou com ${gen(c, "ele", "ela")}.${fim}`;
+      return r.sobra
+        ? `${votei}: ${gen(c, "ele foi eleito", "ela foi eleita")}, ${fmtPct(meu.frac)} do meu voto ficou com ${gen(c, "ele", "ela")} e ${fmtPct(r.sobra)} foi para a sobra, que não elegeu ninguém.${fim}`
+        : `${votei}: ${gen(c, "ele foi eleito", "ela foi eleita")} e todo o meu voto ficou com ${gen(c, "ele", "ela")}.${fim}`;
     }
     const outros = r.partes.filter((p) => p !== meu);
     const nomes = outros.slice(0, 3).map((p) => p.cand.nome);
     const lista = outros.length > 3 ? `${nomes.join(", ")} e mais ${outros.length - 3}`
       : nomes.length > 1 ? `${nomes.slice(0, -1).join(", ")} e ${nomes.at(-1)}` : nomes[0];
-    return `${votei}: ${fmtPct(meu.frac)} do meu voto ficou com ${gen(c, "ele", "ela")} e o resto ajudou a eleger ${lista}.${fim}`;
+    return r.sobra
+      ? `${votei}: ${fmtPct(meu.frac)} do meu voto ficou com ${gen(c, "ele", "ela")}, ${fmtPct(1 - meu.frac - r.sobra)} ajudou a eleger ${lista}; ${fmtPct(r.sobra)} foi para a sobra, que não elegeu ninguém.${fim}`
+      : `${votei}: ${fmtPct(meu.frac)} do meu voto ficou com ${gen(c, "ele", "ela")} e o resto ajudou a eleger ${lista}.${fim}`;
   }
 
   function botoesRedes(texto, link) {
@@ -317,6 +322,7 @@
       endereco: BASE.host + BASE.pathname.replace(/\/$/, ""),
       icone: url("img/favicon.svg"),
       partes: r.partes.map((p) => ({ nome: p.cand.nome, detalhe: p.cand.partido, pct: fmtPct(p.frac), frac: p.frac })),
+      sobra: r.sobra ? { nome: "Sobra", detalhe: "não elegeu ninguém", pct: fmtPct(r.sobra), frac: r.sobra } : null,
     };
     if (r.tipo === "branco" || r.tipo === "nulo") {
       const qtd = r.tipo === "branco" ? dados.brancos : dados.nulos;
@@ -335,8 +341,10 @@
     const meu = c && r.partes.find((p) => p.cand === c);
     if (r.tipo === "legenda") spec.frase = `O voto foi ${eFed ? `para a federação ${g.sigla}` : `para o partido ${g.sigla}`} e ajudou a eleger:`;
     else if (!meu) spec.frase = `${gen(c, "Ele", "Ela")} não foi ${gen(c, "eleito", "eleita")}, mas meu voto ajudou a eleger:`;
-    else if (r.partes.length === 1) spec.frase = `${gen(c, "Ele foi eleito", "Ela foi eleita")} e todo o meu voto ficou com ${gen(c, "ele", "ela")}.`;
-    else spec.frase = `${fmtPct(meu.frac)} do meu voto ficou com ${gen(c, "ele", "ela")} e o resto ajudou a eleger ${eFed ? "colegas da federação" : "colegas de partido"}:`;
+    else if (r.partes.length === 1) spec.frase = r.sobra
+      ? `${gen(c, "Ele foi eleito", "Ela foi eleita")} com mais votos do que precisava; o que passou foi para a sobra, que não elegeu ninguém:`
+      : `${gen(c, "Ele foi eleito", "Ela foi eleita")} e todo o meu voto ficou com ${gen(c, "ele", "ela")}.`;
+    else spec.frase = `${fmtPct(meu.frac)} do meu voto ficou com ${gen(c, "ele", "ela")} e o resto ajudou a eleger ${eFed ? "colegas da federação" : "colegas de partido"}${r.sobra ? " ou foi para a sobra" : ""}:`;
     return spec;
   }
 
@@ -502,11 +510,15 @@
             ${fmt.format(Math.round(qe))}. O voto foi válido e contou para o total ${eFed ? "da federação" : "do partido"}, mas não se converteu em cadeira.</p>`;
       } else {
         html += `<p class="grande">${frase(r, nomeGrupo)}</p>`;
-        html += barra(r.partes);
+        html += barra(r.partes, r.sobra);
         html += `<ol class="lista">${r.partes.map((p, i) => `
           <li><span class="cor" style="--i:${i}"></span>
             <span class="nome">${esc(p.cand.nome)} <span class="sub">${esc(p.cand.partido)} · ${fmt.format(p.cand.v)} votos</span></span>
-            <span class="pct">${fmtPct(p.frac)}</span></li>`).join("")}</ol>`;
+            <span class="pct">${fmtPct(p.frac)}</span></li>`).join("")}${r.sobra ? `
+          <li class="item-sobra"><span class="cor sobra"></span>
+            <span class="nome">Sobra ${nomeGrupo.de} <span class="sub">não elegeu ninguém</span></span>
+            <span class="pct">${fmtPct(r.sobra)}</span></li>` : ""}</ol>`;
+        if (a.sobra > 0.5) html += explicacaoSobra(a, eFed, qe);
       }
 
       html += `
@@ -515,7 +527,10 @@
           ${numero(eFed ? "Votos da federação" : "Votos do partido", fmt.format(a.total),
                    `${fmt.format(g.nominais)} nominais + ${fmt.format(g.legenda)} de legenda`)}
           ${numero("Vagas conquistadas", `${g.vagas} de ${dados.vagas}`)}
-          ${a.custo ? numero("Votos por vaga conquistada", fmt.format(Math.round(a.custo)), eFed ? "votos da federação ÷ vagas" : "votos do partido ÷ vagas") : ""}
+          ${a.custo ? numero("Custo de cada vaga", fmt.format(Math.round(a.custo)),
+                   a.custo < qe - 0.5 ? `${eFed ? "votos da federação" : "votos do partido"} ÷ vagas (abaixo do quociente: vaga nas sobras)` : "o quociente eleitoral") : ""}
+          ${a.eleitos.length && a.sobra > 0.5 ? numero("Sobra", fmt.format(Math.round(a.sobra)),
+                   `${fmtPct(a.sobra / a.total)} dos votos ${eFed ? "da federação" : "do partido"}: não elegeram ninguém`) : ""}
         </div>
         ${a.eleitos.length ? tabelaEleitos(a, r.candidato) : ""}`;
     }
@@ -556,31 +571,52 @@
   }
 
   function frase(r, nomeGrupo) {
-    const c = r.candidato, partes = r.partes, n = partes.length;
+    const c = r.candidato, partes = r.partes, n = partes.length, s = r.sobra;
     const meu = c && partes.find((p) => p.cand === c);
     const outros = partes.filter((p) => p !== meu).map((p) => p.cand);
+    const foiEleito = gen(c, "Seu candidato foi eleito", "Sua candidata foi eleita");
     if (meu && n === 1) {
-      return `${gen(c, "Seu candidato foi eleito", "Sua candidata foi eleita")} e <strong>todo o seu voto</strong> ficou com ${gen(c, "ele", "ela")}: ` +
-        `os votos que ${gen(c, "ele", "ela")} recebeu não chegaram a cobrir sozinhos o “custo” de uma vaga.`;
+      if (!s) {
+        return `${foiEleito} e <strong>todo o seu voto</strong> ficou com ${gen(c, "ele", "ela")}: ` +
+          `os votos que ${gen(c, "ele", "ela")} recebeu não chegaram a cobrir sozinhos o “custo” de uma vaga.`;
+      }
+      return `${foiEleito} com mais votos do que precisava. <strong>${fmtPct(meu.frac)}</strong> do seu voto ficou com ${gen(c, "ele", "ela")}; ` +
+        `<strong>${fmtPct(s)}</strong> foi para a sobra ${nomeGrupo.de}, que não elegeu ninguém.`;
     }
     if (meu) {
       const colegas = outros.length === 1
         ? gen(outros[0], "mais um colega", "mais uma colega")
         : todasMulheres(outros) ? `outras ${outros.length} colegas` : `outros ${outros.length} colegas`;
-      return `${gen(c, "Seu candidato foi eleito", "Sua candidata foi eleita")} com sobra. <strong>${fmtPct(meu.frac)}</strong> do seu voto ficou com ${gen(c, "ele", "ela")}; ` +
-        `o restante ajudou a eleger ${colegas} ${nomeGrupo.de}.`;
+      return `${foiEleito} com mais votos do que precisava. <strong>${fmtPct(meu.frac)}</strong> do seu voto ficou com ${gen(c, "ele", "ela")}; ` +
+        (s ? `${fmtPct(1 - meu.frac - s)} ajudou a eleger ${colegas} ${nomeGrupo.de} e <strong>${fmtPct(s)}</strong> foi para a sobra, que não elegeu ninguém.`
+           : `o restante ajudou a eleger ${colegas} ${nomeGrupo.de}.`);
     }
     const inicio = c ? (c.eleito ? "" : `${esc(c.nome)} não foi ${gen(c, "eleito", "eleita")}, mas o voto não se perdeu: contou ${nomeGrupo.para}. `)
                      : `Seu voto de legenda foi ${nomeGrupo.para}. `;
     const eleitos = partes.map((p) => p.cand);
     return inicio + (n === 1
       ? `Ele ajudou a eleger <strong>${esc(partes[0].cand.nome)}</strong>.`
-      : `Ele foi repartido entre <strong>${n} ${todasMulheres(eleitos) ? "deputadas eleitas" : "deputados eleitos"}</strong> que precisavam de votos além dos próprios.`);
+      : `Ele foi repartido entre <strong>${n} ${todasMulheres(eleitos) ? "deputadas eleitas" : "deputados eleitos"}</strong> que precisavam de votos além dos próprios.`) +
+      (s ? ` Desse voto, <strong>${fmtPct(s)}</strong> foi para a sobra ${nomeGrupo.de} e não elegeu ninguém.` : "");
   }
 
-  function barra(partes) {
+  // Por que o partido teve sobra (e, no caso extremo, por que ficou com menos vagas
+  // do que o quociente permitia).
+  function explicacaoSobra(a, eFed, qe) {
+    const quem = eFed ? "A federação" : "O partido", k = a.eleitos.length;
+    let t = `${quem} teve ${fmt.format(a.total)} votos e usou ${fmt.format(Math.round(a.custo * k))} ${k === 1 ? "na vaga conquistada" : `nas ${k} vagas conquistadas`}. ` +
+      `Os outros ${fmt.format(Math.round(a.sobra))} votos são a sobra: disputaram as últimas vagas do estado, mas não alcançaram mais uma cadeira.`;
+    if (a.vagasPeloQuociente > k) {
+      t += ` Pelo quociente, ${eFed ? "a federação" : "o partido"} tinha votos para ${a.vagasPeloQuociente} vagas, mas ficou com ${k}: ` +
+        `os outros candidatos não chegaram a 10% do quociente (${fmt.format(Math.round(qe * 0.1))} votos), o mínimo para ocupar uma vaga.`;
+    }
+    return `<p class="nota-sobra">${t}</p>`;
+  }
+
+  function barra(partes, sobra) {
     return `<div class="barra" role="img" aria-label="Divisão do seu voto">${partes.map((p, i) =>
-      `<span style="--i:${i};flex-grow:${p.frac}" title="${esc(p.cand.nome)}: ${fmtPct(p.frac)}"></span>`).join("")}</div>`;
+      `<span style="--i:${i};flex-grow:${p.frac}" title="${esc(p.cand.nome)}: ${fmtPct(p.frac)}"></span>`).join("")}${sobra
+      ? `<span class="sobra" style="flex-grow:${sobra}" title="Sobra, não elegeu ninguém: ${fmtPct(sobra)}"></span>` : ""}</div>`;
   }
 
   function numero(rotulo, valor, nota) {
@@ -589,8 +625,9 @@
 
   function tabelaEleitos(a, cand) {
     const linhas = a.eleitos.slice().sort((x, y) => y.cand.v - x.cand.v).map((e) => {
-      const situacao = e.excedente > 0 ? `puxou ${fmt.format(Math.round(e.excedente))} votos para colegas`
-                                       : `recebeu ${fmt.format(Math.round(e.deficit))} votos de colegas e legenda`;
+      const situacao = e.excedente > 0.5 ? `teve ${fmt.format(Math.round(e.excedente))} votos além do custo da vaga`
+                     : e.deficit > 0.5 ? `precisou de ${fmt.format(Math.round(e.deficit))} votos de colegas e legenda`
+                     : "usou só os próprios votos";
       return `<tr${e.cand === cand ? ' class="seu"' : ""}><td>${esc(e.cand.nome)}</td><td>${esc(e.cand.partido)}</td>
         <td class="r">${fmt.format(e.cand.v)}</td><td>${situacao}</td></tr>`;
     }).join("");

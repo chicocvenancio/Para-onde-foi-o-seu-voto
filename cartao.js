@@ -3,12 +3,12 @@
  * compartilhar como imagem: Stories (1080x1920) ou Feed (1080x1080).
  *
  * Cartao.desenhar(spec, formato) -> Promise<Blob>
- *   spec = { kicker, destaque, frase, partes: [{ nome, detalhe, pct, frac }], endereco }
+ *   spec = { kicker, destaque, frase, partes: [{ nome, detalhe, pct, frac }], sobra?, endereco }
  */
 (function (global) {
   "use strict";
 
-  const COR = { fundo: "#f6f5f1", cartao: "#ffffff", tinta: "#1d1f24", suave: "#5d6270", linha: "#e2e0d8", acento: "#0b6e4f" };
+  const COR = { fundo: "#f6f5f1", cartao: "#ffffff", tinta: "#1d1f24", suave: "#5d6270", linha: "#e2e0d8", acento: "#0b6e4f", sobra: "#a9adb5" };
   const DISPLAY = '"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif';
   const TEXTO = '"Source Sans 3", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
   // mesmas cores da barra do site: hsl(160 + i*53, 55%, 45%)
@@ -107,36 +107,33 @@
     ctx.font = `400 ${f.frase}px ${TEXTO}`;
     y = paragrafo(ctx, spec.frase, f.pad, y + f.frase * 0.5, largura, f.frase, f.frase * 1.3, 4);
 
-    // ---- barra e lista ----
+    // ---- barra e lista (eleitos e, se houver, a sobra em cinza) ----
     const partes = spec.partes || [];
+    const sobra = spec.sobra;
     if (partes.length) {
       y += f.barra * 0.7;
+      const fatias = partes.map((p, i) => ({ frac: p.frac, cor: corParte(i) }));
+      if (sobra) fatias.push({ frac: sobra.frac, cor: COR.sobra });
       const gap = Math.max(4, Math.round(f.barra / 12));
-      const util = largura - gap * (partes.length - 1);
+      const util = largura - gap * (fatias.length - 1);
       ctx.save();
       ctx.beginPath();
       ctx.roundRect ? ctx.roundRect(f.pad, y, largura, f.barra, f.barra * 0.22) : ctx.rect(f.pad, y, largura, f.barra);
       ctx.clip();
       let x = f.pad;
-      partes.forEach((p, i) => {
-        const w = Math.max(3, util * p.frac);
-        ctx.fillStyle = corParte(i);
+      for (const fa of fatias) {
+        const w = Math.max(3, util * fa.frac);
+        ctx.fillStyle = fa.cor;
         ctx.fillRect(x, y, w, f.barra);
         x += w + gap;
-      });
+      }
       ctx.restore();
       y += f.barra + f.linha * 0.6;
 
-      // quantas linhas cabem até o rodapé
-      const espaco = yRodape - f.linha * 0.8 - y;
-      let n = Math.min(partes.length, f.maxLinhas, Math.floor(espaco / f.linhaAlt));
-      const sobra = partes.length - n;
-      if (sobra > 0) n = Math.max(0, Math.min(n, Math.floor((espaco - f.linhaAlt * 0.7) / f.linhaAlt)));
       const quadrado = f.linha * 0.62;
-      for (let i = 0; i < n; i++) {
-        const p = partes[i];
+      const linha = (p, cor) => {
         const base = y + f.linhaAlt * 0.62;
-        ctx.fillStyle = corParte(i);
+        ctx.fillStyle = cor;
         retangulo(ctx, f.pad, base - quadrado * 0.95, quadrado, quadrado, quadrado * 0.25);
         ctx.font = `700 ${f.linha}px ${TEXTO}`;
         ctx.fillStyle = COR.tinta;
@@ -158,7 +155,13 @@
         ctx.fillStyle = COR.linha;
         ctx.fillRect(f.pad, y + f.linhaAlt - 2, largura, 2);
         y += f.linhaAlt;
-      }
+      };
+
+      // quantas linhas de eleitos cabem até o rodapé (a linha da sobra sempre aparece)
+      const espaco = yRodape - f.linha * 0.8 - y - (sobra ? f.linhaAlt : 0);
+      let n = Math.min(partes.length, f.maxLinhas, Math.floor(espaco / f.linhaAlt));
+      if (partes.length > n) n = Math.max(0, Math.min(n, Math.floor((espaco - f.linhaAlt * 0.7) / f.linhaAlt)));
+      for (let i = 0; i < n; i++) linha(partes[i], corParte(i));
       const resto = partes.length - n;
       if (resto > 0) {
         ctx.font = `400 ${Math.round(f.linha * 0.85)}px ${TEXTO}`;
@@ -166,6 +169,7 @@
         ctx.fillText(`e mais ${resto} ${resto === 1 ? "eleito" : "eleitos"}`, f.pad, y + f.linhaAlt * 0.6);
         y += f.linhaAlt * 0.8;
       }
+      if (sobra) linha(sobra, COR.sobra);
     } else if (spec.numero) {
       // sem eleitos (branco, nulo, partido sem vagas): um número grande de contexto
       y += f.titulo * 0.6;

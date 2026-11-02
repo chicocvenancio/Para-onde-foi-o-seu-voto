@@ -18,6 +18,7 @@
   --accent-soft: #e3f1ea;
   --warn: #8a5a00;
   --warn-soft: #fff4dc;
+  --sobra: #a9adb5;
   --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
   --font-body: "Source Sans 3", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --sat: 55%;
@@ -27,13 +28,13 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #14161a; --surface: #1d2026; --ink: #eceae4; --muted: #a2a7b3; --line: #30343d;
-    --accent: #4cc39a; --accent-soft: #173a2e; --warn: #f2c66d; --warn-soft: #3a2f17;
+    --accent: #4cc39a; --accent-soft: #173a2e; --warn: #f2c66d; --warn-soft: #3a2f17; --sobra: #5b606b;
     --sat: 50%; --lum: 62%; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #14161a; --surface: #1d2026; --ink: #eceae4; --muted: #a2a7b3; --line: #30343d;
-  --accent: #4cc39a; --accent-soft: #173a2e; --warn: #f2c66d; --warn-soft: #3a2f17;
+  --accent: #4cc39a; --accent-soft: #173a2e; --warn: #f2c66d; --warn-soft: #3a2f17; --sobra: #5b606b;
   --sat: 50%; --lum: 62%; color-scheme: dark;
 }
 
@@ -116,7 +117,7 @@ fieldset[disabled] .opcao { cursor: not-allowed; }
 .cor { width: 14px; height: 14px; border-radius: 4px; }
 .lista .pct { font-weight: 700; font-variant-numeric: tabular-nums; }
 
-.numeros { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 20px 0; }
+.numeros { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 20px 0; }
 .num-card { background: var(--bg); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; }
 .num-card .rot { font-size: .8rem; color: var(--muted); }
 .num-card .val { font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -164,3 +165,8 @@ tr.seu td { background: var(--accent-soft); font-weight: 600; }
 .imagens { display: flex; flex-direction: column; gap: 8px; }
 .rotulo-imagens { font-size: .85rem; color: var(--muted); }
 .dica-imagem { margin: 0; font-size: .85rem; color: var(--ink); background: var(--accent-soft); border-radius: 10px; padding: 8px 12px; overflow-wrap: anywhere; }
+
+/* sobra: votos do partido que não elegeram ninguém */
+.barra span.sobra, .cor.sobra { background: var(--sobra); }
+.item-sobra .nome { color: var(--muted); }
+.nota-sobra { font-size: .95rem; color: var(--muted); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin: 0 0 16px; }
