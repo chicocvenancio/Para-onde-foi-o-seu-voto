@@ -96,14 +96,14 @@ fieldset[disabled] .opcao { cursor: not-allowed; }
 
 .combo { position: relative; max-width: 460px; }
 .combo input { max-width: none; }
-#sugestoes { position: absolute; z-index: 5; left: 0; right: 0; top: calc(100% + 4px); margin: 0; padding: 4px; list-style: none;
+#sugestoes, .sugestoes { position: absolute; z-index: 5; left: 0; right: 0; top: calc(100% + 4px); margin: 0; padding: 4px; list-style: none;
   background: var(--surface); border: 1px solid var(--line); border-radius: 10px; max-height: 320px; overflow: auto;
   box-shadow: 0 8px 24px rgb(0 0 0 / .12); }
-#sugestoes li { display: grid; grid-template-columns: 3.2em 1fr auto; gap: 8px; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
-#sugestoes li:hover, #sugestoes li.ativo { background: var(--accent-soft); }
+#sugestoes li, .sugestoes li { display: grid; grid-template-columns: 3.2em 1fr auto; gap: 8px; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+#sugestoes li:hover, #sugestoes li.ativo, .sugestoes li:hover, .sugestoes li.ativo { background: var(--accent-soft); }
 #sugestoes .n { font-variant-numeric: tabular-nums; color: var(--muted); }
 #sugestoes .part { color: var(--muted); font-size: .85rem; }
-#sugestoes .vazio { display: block; color: var(--muted); cursor: default; }
+#sugestoes .vazio, .sugestoes .vazio { display: block; color: var(--muted); cursor: default; }
 
 .aviso { background: var(--warn-soft); color: var(--warn); padding: 12px 14px; border-radius: 10px; margin: 16px 0 0; }
 
@@ -170,3 +170,9 @@ tr.seu td { background: var(--accent-soft); font-weight: 600; }
 .barra span.sobra, .cor.sobra { background: var(--sobra); }
 .item-sobra .nome { color: var(--muted); }
 .nota-sobra { font-size: .95rem; color: var(--muted); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin: 0 0 16px; }
+
+/* campo de município (vereador): dentro da linha dos seletores */
+.linha .combo-municipio { flex: 1 1 220px; max-width: none; }
+.linha .combo-municipio input { max-width: none; }
+.sugestoes li.mun { grid-template-columns: 1fr auto; }
+.sugestoes .obs { color: var(--muted); font-size: .85rem; }

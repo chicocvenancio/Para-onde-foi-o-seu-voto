@@ -23,7 +23,7 @@
   <meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#14161a" media="(prefers-color-scheme: dark)">
   <link rel="preload" href="fonts/source-sans-3-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="style.css?v=191ff13784">
+  <link rel="stylesheet" href="style.css?v=e15fcdb11b">
 </head>
 <body>
   <header class="topo">
@@ -49,7 +49,11 @@
               <option value="federal">Deputado federal</option>
             </select>
             <select id="uf" aria-label="Estado"><option value="">Escolha o estado…</option></select>
-            <select id="municipio" aria-label="Município" hidden></select>
+            <div class="combo combo-municipio" id="municipio-campo" hidden>
+              <input id="municipio" type="search" autocomplete="off" placeholder="Digite o município…" aria-label="Município"
+                role="combobox" aria-expanded="false" aria-controls="sugestoes-municipio" aria-autocomplete="list">
+              <ul id="sugestoes-municipio" class="sugestoes" role="listbox" hidden></ul>
+            </div>
           </div>
           <div class="resumo-uf" id="resumo-uf" hidden aria-live="polite"></div>
         </div>
@@ -165,6 +169,6 @@
 
   <script src="engine.js?v=1281d87219"></script>
   <script src="cartao.js?v=071b9d42b6"></script>
-  <script src="app.js?v=4d65cb400a"></script>
+  <script src="app.js?v=2357226954"></script>
 </body>
 </html>

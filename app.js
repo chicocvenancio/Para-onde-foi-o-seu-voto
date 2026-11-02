@@ -51,7 +51,8 @@
     uf: $("uf"), ano: $("ano"), passoTipo: $("passo-tipo"), passoEscolha: $("passo-escolha"),
     escCand: $("escolha-candidato"), escLeg: $("escolha-legenda"), busca: $("busca"),
     sugestoes: $("sugestoes"), partido: $("partido"), aviso: $("aviso"), resultado: $("resultado"),
-    resumoUF: $("resumo-uf"), cargo: $("cargo"), municipio: $("municipio"), legendaTipo: $("legenda-tipo"), descCandidato: $("desc-candidato"),
+    resumoUF: $("resumo-uf"), cargo: $("cargo"), municipio: $("municipio"),
+    municipioCampo: $("municipio-campo"), sugestoesMun: $("sugestoes-municipio"), legendaTipo: $("legenda-tipo"), descCandidato: $("desc-candidato"),
   };
   const TITULO = document.title;              // título completo da página inicial
   const MARCA = "Para onde foi o seu voto?";  // sufixo curto nos resultados
@@ -108,20 +109,72 @@
     return indicesMunicipios.get(ano);
   }
 
-  // Lista de municípios do estado (só para vereador). "sem:" marca os que não têm votação nos dados do TSE.
+  // ---------- município (só para vereador): campo de busca com sugestões ----------
+  let municipios = [];     // [{ cod, nome, semDados, busca }] do estado escolhido
+  let municipioCod = "";   // código TSE do município escolhido
+  let munOpcoes = [], munAtivo = -1;
+  const municipioEscolhido = () => municipios.find((m) => m.cod === municipioCod);
+
   async function preencherMunicipios() {
     const uf = el.uf.value, ano = el.ano.value;
-    if (cargoAtual() !== "vereador" || !uf) { el.municipio.hidden = true; el.municipio.innerHTML = ""; return; }
-    const atual = el.municipio.value;
+    if (cargoAtual() !== "vereador" || !uf) {
+      el.municipioCampo.hidden = true; municipios = []; municipioCod = ""; el.municipio.value = ""; fecharMunicipios(); return;
+    }
     let idx;
     try { idx = await indiceMunicipios(ano); } catch (e) { aviso("Não foi possível carregar a lista de municípios. Verifique a conexão e tente de novo."); return; }
-    const lista = (idx[uf] || []).map(([cod, nome]) => [cod, nome])
-      .concat(((idx.semDados || {})[uf] || []).map(([cod, nome]) => [`sem:${cod}`, `${nome} (sem dados)`]))
-      .sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
-    el.municipio.innerHTML = '<option value="">Escolha o município…</option>' +
-      lista.map(([cod, nome]) => `<option value="${esc(cod)}">${esc(nome)}</option>`).join("");
-    if (lista.some(([cod]) => cod === atual)) el.municipio.value = atual;
-    el.municipio.hidden = false;
+    municipios = (idx[uf] || []).map(([cod, nome]) => ({ cod, nome }))
+      .concat(((idx.semDados || {})[uf] || []).map(([cod, nome]) => ({ cod, nome, semDados: true })))
+      .map((m) => ({ ...m, busca: semAcento(m.nome) }))
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    const m = municipioEscolhido();
+    if (!m) municipioCod = "";
+    el.municipio.value = m ? m.nome : "";
+    el.municipio.placeholder = `Digite o município (${municipios.length} ${emUF(uf)})`;
+    el.municipioCampo.hidden = false;
+  }
+
+  function buscarMunicipio() {
+    const q = semAcento(el.municipio.value.trim());
+    if (municipioCod && (!municipioEscolhido() || semAcento(municipioEscolhido().nome) !== q)) municipioCod = "";
+    if (!q) { fecharMunicipios(); return; }
+    const termos = q.split(/\s+/);
+    // primeiro os que começam com o texto digitado, depois os que só o contêm
+    const achados = municipios.filter((m) => termos.every((t) => m.busca.includes(t)));
+    munOpcoes = achados.filter((m) => m.busca.startsWith(q)).concat(achados.filter((m) => !m.busca.startsWith(q))).slice(0, 12);
+    munAtivo = -1;
+    el.sugestoesMun.innerHTML = munOpcoes.length
+      ? munOpcoes.map((m, i) => `<li role="option" class="mun" id="mun-${i}" data-i="${i}"><span>${esc(m.nome)}</span>${m.semDados ? '<span class="obs">sem dados</span>' : ""}</li>`).join("")
+      : '<li class="vazio">Nenhum município encontrado</li>';
+    el.sugestoesMun.hidden = false;
+    el.municipio.setAttribute("aria-expanded", "true");
+  }
+
+  function fecharMunicipios() {
+    el.sugestoesMun.hidden = true;
+    el.municipio.setAttribute("aria-expanded", "false");
+    el.municipio.removeAttribute("aria-activedescendant");
+  }
+
+  function escolherMunicipio(m) {
+    municipioCod = m.cod;
+    el.municipio.value = m.nome;
+    fecharMunicipios();
+    carregarUF();
+  }
+
+  function teclaMunicipio(ev) {
+    if (el.sugestoesMun.hidden || !munOpcoes.length) return;
+    if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+      ev.preventDefault();
+      munAtivo = (munAtivo + (ev.key === "ArrowDown" ? 1 : -1) + munOpcoes.length) % munOpcoes.length;
+      [...el.sugestoesMun.children].forEach((li, i) => li.classList.toggle("ativo", i === munAtivo));
+      el.municipio.setAttribute("aria-activedescendant", `mun-${munAtivo}`);
+    } else if (ev.key === "Enter") {
+      ev.preventDefault();
+      escolherMunicipio(munOpcoes[Math.max(munAtivo, 0)]);
+    } else if (ev.key === "Escape") {
+      fecharMunicipios();
+    }
   }
 
   // Textos do quiz que dependem do cargo (com o estado escolhido, "distrital" no DF).
@@ -167,14 +220,14 @@
     if (!uf) { semDados(); atualizarRota(); return false; }
     let chave = `${ano}/${cargo === "federal" ? "" : cargo + "/"}${uf}`;
     if (cargo === "vereador") {
-      const cod = el.municipio.value;
-      if (!cod) { semDados(); aviso(""); atualizarRota(); return false; }
-      if (cod.startsWith("sem:")) {
+      const m = municipioEscolhido();
+      if (!m) { semDados(); aviso(""); atualizarRota(); return false; }
+      if (m.semDados) {
         semDados();
-        aviso(`O TSE não publicou a votação de vereador de ${esc(el.municipio.selectedOptions[0].textContent.replace(" (sem dados)", ""))} em ${esc(ano)} nos dados abertos.`);
+        aviso(`O TSE não publicou a votação de vereador de ${esc(m.nome)} em ${esc(ano)} nos dados abertos.`);
         return false;
       }
-      chave += "/" + cod;
+      chave += "/" + m.cod;
     }
     try {
       if (!cache.has(chave)) {
@@ -299,9 +352,10 @@
       await preencherMunicipios();
       if (!rota.municipio) { atualizarRota(); return; }
       const alvo = slug(rota.municipio);
-      const op = [...el.municipio.options].find((o) => o.value && (o.value.replace("sem:", "") === rota.municipio || slug(o.textContent.replace(" (sem dados)", "")) === alvo));
-      if (!op) { aviso(`Não encontramos o município “${esc(rota.municipio)}” ${emUF(rota.uf)}.`); return; }
-      el.municipio.value = op.value;
+      const m = municipios.find((m) => m.cod === rota.municipio || slug(m.nome) === alvo);
+      if (!m) { aviso(`Não encontramos o município “${esc(rota.municipio)}” ${emUF(rota.uf)}.`); return; }
+      municipioCod = m.cod;
+      el.municipio.value = m.nome;
     }
     if (!(await carregarUF({ automatico: true }))) return;
     const v = rota.voto;
@@ -751,8 +805,14 @@
   const recarregar = async () => { await preencherMunicipios(); carregarUF(); };
   el.ano.addEventListener("change", () => { preencherCargos(); preencherUFs(); recarregar(); });
   el.cargo.addEventListener("change", () => { preencherUFs(); recarregar(); });
-  el.uf.addEventListener("change", () => { el.municipio.value = ""; recarregar(); });
-  el.municipio.addEventListener("change", () => carregarUF());
+  el.uf.addEventListener("change", () => { municipioCod = ""; recarregar(); });
+  el.municipio.addEventListener("input", buscarMunicipio);
+  el.municipio.addEventListener("keydown", teclaMunicipio);
+  el.municipio.addEventListener("blur", () => setTimeout(fecharMunicipios, 150));
+  el.sugestoesMun.addEventListener("mousedown", (ev) => {
+    const li = ev.target.closest("li[data-i]");
+    if (li) { ev.preventDefault(); escolherMunicipio(munOpcoes[+li.dataset.i]); }
+  });
   document.querySelectorAll('input[name="tipo"]').forEach((r) => r.addEventListener("change", mudarTipo));
   el.partido.addEventListener("change", () => el.partido.value && mostrar({ tipo: "legenda", partido: el.partido.value }));
   el.busca.addEventListener("input", buscar);
