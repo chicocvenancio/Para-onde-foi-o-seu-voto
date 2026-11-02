@@ -18,8 +18,12 @@
 
   // Cargos: "federal" (Câmara dos Deputados) e "estadual" (Assembleia Legislativa;
   // no DF, deputado distrital na Câmara Legislativa).
-  const nomeCargo = (d) => d.cargo === "vereador" ? "vereador" : d.cargo === "federal" ? "deputado federal"
-    : d.uf === "DF" ? "deputado distrital" : "deputado estadual";
+  // Nome do cargo; com uma candidata (c.f), no feminino: "vereadora", "deputada federal"...
+  const nomeCargo = (d, c) => {
+    const nome = d.cargo === "vereador" ? "vereador" : d.cargo === "federal" ? "deputado federal"
+      : d.uf === "DF" ? "deputado distrital" : "deputado estadual";
+    return c && c.f ? nome.replace(/^vereador$/, "vereadora").replace(/^deputado/, "deputada") : nome;
+  };
   const DIGITOS = { federal: 4, estadual: 5, vereador: 5 };
   const municipal = (ano) => Number(ano) % 4 === 0; // 2020, 2024: eleições municipais
   // Onde foi a eleição: o estado (deputados) ou o município (vereadores).
@@ -425,7 +429,7 @@
     const g = r.grupo;
     const eFed = g && g.id[0] === "F";
     const spec = {
-      kicker: `${maiuscula(nomeCargo(dados))} · ${localDe(dados)} · ${dados.ano}`,
+      kicker: `${maiuscula(nomeCargo(dados, r.candidato))} · ${localDe(dados)} · ${dados.ano}`,
       endereco: BASE.host + BASE.pathname.replace(/\/$/, ""),
       icone: url("img/favicon.svg"),
       partes: r.partes.map((p) => ({ nome: p.cand.nome, detalhe: p.cand.partido, pct: fmtPct(p.frac), frac: p.frac })),
@@ -605,7 +609,7 @@
       const desc = eFed ? `federação ${esc(g.sigla)} (${g.partidos.map(esc).join(", ")})` : `partido ${esc(g.sigla)}`;
       const nomeGrupo = { de: (eFed ? "da " : "do ") + desc, para: (eFed ? "para a " : "para o ") + desc };
 
-      html = `<p class="kicker">${maiuscula(nomeCargo(dados))} · ${nomeUF} · ${dados.ano}</p><h2>${cabecalho}</h2>`;
+      html = `<p class="kicker">${maiuscula(nomeCargo(dados, r.candidato))} · ${nomeUF} · ${dados.ano}</p><h2>${cabecalho}</h2>`;
 
       if (!r.partes.length) {
         const inicio = r.tipo === "candidato"
