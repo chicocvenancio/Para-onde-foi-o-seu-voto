@@ -25,6 +25,12 @@
   const BASE = new URL(".", document.currentScript.src);
   const url = (caminho) => new URL(caminho, BASE).href;
 
+  // Os links diretos trocam o endereço para /UF/numero; fixa os ícones em endereço
+  // absoluto antes disso, senão "img/favicon.svg" passaria a apontar para /UF/img/.
+  document.querySelectorAll('link[rel~="icon"], link[rel="apple-touch-icon"]').forEach((l) => {
+    l.href = url(l.getAttribute("href"));
+  });
+
   const $ = (id) => document.getElementById(id);
   const el = {
     uf: $("uf"), ano: $("ano"), passoTipo: $("passo-tipo"), passoEscolha: $("passo-escolha"),
