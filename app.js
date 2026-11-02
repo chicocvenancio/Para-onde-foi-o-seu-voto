@@ -37,7 +37,8 @@
     escCand: $("escolha-candidato"), escLeg: $("escolha-legenda"), busca: $("busca"),
     sugestoes: $("sugestoes"), partido: $("partido"), aviso: $("aviso"), resultado: $("resultado"),
   };
-  const TITULO = document.title;
+  const TITULO = document.title;              // título completo da página inicial
+  const MARCA = "Para onde foi o seu voto?";  // sufixo curto nos resultados
 
   const fmt = new Intl.NumberFormat("pt-BR");
   const fmtPct = (x) => {
@@ -207,7 +208,7 @@
   function atualizarRota(escolha, titulo) {
     const destino = url(rotaAtual(escolha));
     if (destino !== location.href) history.replaceState(null, "", destino);
-    document.title = titulo ? `${titulo} · ${TITULO}` : TITULO;
+    document.title = titulo ? `${titulo} · ${MARCA}` : TITULO;
   }
 
   async function copiarLink(botao) {

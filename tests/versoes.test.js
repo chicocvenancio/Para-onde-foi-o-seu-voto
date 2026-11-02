@@ -15,3 +15,10 @@ for (const nome of ["app.js", "engine.js", "style.css"]) {
     assert.ok(html.includes(`"${nome}?v=${hash}"`), `rode python3 scripts/versionar.py (esperado ${nome}?v=${hash})`);
   });
 }
+
+for (const pagina of ["index.html", "404.html"]) {
+  test(`${pagina} usa a versão atual da imagem de prévia`, () => {
+    const hash = crypto.createHash("sha256").update(fs.readFileSync(path.join(RAIZ, "img/compartilhar.png"))).digest("hex").slice(0, 10);
+    assert.ok(fs.readFileSync(path.join(RAIZ, pagina), "utf8").includes(`img/compartilhar.png?v=${hash}"`), "rode python3 scripts/versionar.py");
+  });
+}
