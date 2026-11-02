@@ -23,7 +23,7 @@
   <meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#14161a" media="(prefers-color-scheme: dark)">
   <link rel="preload" href="fonts/source-sans-3-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="style.css?v=cc75b4d15d">
+  <link rel="stylesheet" href="style.css?v=5dca98dd42">
 </head>
 <body>
   <header class="topo">
@@ -47,6 +47,7 @@
             <select id="uf"><option value="">Escolha o estado…</option></select>
             <select id="ano" aria-label="Eleição" hidden></select>
           </div>
+          <div class="resumo-uf" id="resumo-uf" hidden aria-live="polite"></div>
         </div>
       </div>
 
@@ -103,7 +104,7 @@
         <article>
           <h3>3. Quociente partidário</h3>
           <p>Votos do partido ÷ quociente eleitoral, sem a parte fracionária: é quantas vagas o partido ganha de saída.
-            Para ficar com uma delas, o candidato precisa de pelo menos 10% do quociente eleitoral.</p>
+            Para ficar com uma delas, o candidato precisa de pelo menos 10% do quociente eleitoral (o “mínimo individual”).</p>
         </article>
         <article>
           <h3>4. Sobras</h3>
@@ -153,6 +154,6 @@
 
   <script src="engine.js?v=626e42187b"></script>
   <script src="cartao.js?v=eaf8a64d7f"></script>
-  <script src="app.js?v=da8dd0bec9"></script>
+  <script src="app.js?v=0a20fe9e22"></script>
 </body>
 </html>

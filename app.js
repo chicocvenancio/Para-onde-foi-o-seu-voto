@@ -36,6 +36,7 @@
     uf: $("uf"), ano: $("ano"), passoTipo: $("passo-tipo"), passoEscolha: $("passo-escolha"),
     escCand: $("escolha-candidato"), escLeg: $("escolha-legenda"), busca: $("busca"),
     sugestoes: $("sugestoes"), partido: $("partido"), aviso: $("aviso"), resultado: $("resultado"),
+    resumoUF: $("resumo-uf"),
   };
   const TITULO = document.title;              // título completo da página inicial
   const MARCA = "Para onde foi o seu voto?";  // sufixo curto nos resultados
@@ -89,7 +90,7 @@
   async function carregarUF({ automatico = false } = {}) {
     const uf = el.uf.value, ano = el.ano.value;
     el.resultado.hidden = true;
-    if (!uf) { dados = null; el.passoTipo.disabled = true; atualizarRota(); return false; }
+    if (!uf) { dados = null; el.passoTipo.disabled = true; mostrarResumoUF(); atualizarRota(); return false; }
     const chave = `${ano}/${uf}`;
     try {
       if (!cache.has(chave)) {
@@ -101,11 +102,13 @@
       }
     } catch (e) {
       aviso("Não foi possível carregar os dados deste estado. Verifique a conexão e tente de novo.");
+      dados = null; el.passoTipo.disabled = true; mostrarResumoUF();
       return false;
     }
     aviso("");
     dados = cache.get(chave);
     el.passoTipo.disabled = false;
+    mostrarResumoUF();
     el.partido.innerHTML = '<option value="">Escolha o partido…</option>' +
       dados.grupos.flatMap((g) => g.partidos.map((p) => ({ p, g })))
         .sort((a, b) => a.p.localeCompare(b.p, "pt-BR"))
@@ -113,6 +116,25 @@
     el.busca.value = "";
     if (!automatico) mudarTipo();
     return true;
+  }
+
+  // Resumo do estado escolhido: vagas, votos válidos, quociente eleitoral e o mínimo
+  // individual (10% do quociente) que um candidato precisa para ocupar vaga do partido.
+  function mostrarResumoUF() {
+    if (!dados) { el.resumoUF.hidden = true; el.resumoUF.innerHTML = ""; return; }
+    const qe = Motor.quocienteEleitoral(dados);
+    const item = (rotulo, valor, nota) =>
+      `<div class="item"><dt>${rotulo}</dt><dd><span class="valor">${valor}</span>${nota ? `<span class="nota">${nota}</span>` : ""}</dd></div>`;
+    el.resumoUF.innerHTML =
+      `<p class="titulo-resumo">${esc(maiuscula(emUF(dados.uf)))}, eleição ${esc(dados.ano)}</p><dl>` +
+      item("Vagas", fmt.format(dados.vagas)) +
+      item("Votos válidos", fmt.format(dados.validos)) +
+      item("Quociente eleitoral", `${fmt.format(Math.round(qe))} votos`,
+        "votos válidos ÷ vagas: o “preço” aproximado de uma cadeira para o partido ou federação") +
+      item("Mínimo individual", `${fmt.format(Math.round(qe * 0.1))} votos`,
+        "10% do quociente: o candidato precisa disso para ficar com uma vaga do partido") +
+      "</dl>";
+    el.resumoUF.hidden = false;
   }
 
   function tipoAtual() {

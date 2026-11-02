@@ -72,6 +72,16 @@ select, input[type="search"] {
 .linha select { flex: 1 1 200px; }
 select:focus-visible, input:focus-visible, .opcao:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* resumo do estado (passo 1) */
+.resumo-uf { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); max-width: 640px; }
+.resumo-uf .titulo-resumo { margin: 0 0 8px; font-size: .85rem; font-weight: 600; color: var(--muted); }
+.resumo-uf dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr)); gap: 10px 18px; margin: 0; }
+.resumo-uf .item { min-width: 0; }
+.resumo-uf dt { font-size: .8rem; color: var(--muted); }
+.resumo-uf dd { margin: 0; display: flex; flex-direction: column; }
+.resumo-uf .valor { font-weight: 700; font-size: 1.1rem; font-variant-numeric: tabular-nums; color: var(--ink); }
+.resumo-uf .nota { font-size: .78rem; line-height: 1.35; color: var(--muted); }
+
 .opcoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
 .opcao { position: relative; display: flex; flex-direction: column; gap: 2px; cursor: pointer;
   border: 1.5px solid var(--line); border-radius: 12px; padding: 14px; background: var(--bg); transition: border-color .15s, background .15s; }
