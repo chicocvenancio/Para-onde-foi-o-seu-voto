@@ -36,10 +36,19 @@ Baixa do Portal de Dados Abertos do TSE (`cdn.tse.jus.br`) os arquivos `votacao_
 python3 -m http.server 8000
 ```
 
+## Publicar mudanças no app.js, engine.js ou style.css
+
+```bash
+python3 scripts/versionar.py
+```
+
+Atualiza o `?v=<hash>` dessas URLs no `index.html`, para o navegador não misturar versões novas e antigas
+(o GitHub Pages manda guardar cada arquivo por 10 minutos). O teste `tests/versoes.test.js` falha se isso for esquecido.
+
 ## Testes
 
 ```bash
-node --test tests/engine.test.js
+node --test tests/*.test.js
 ```
 
 ## Modelo de atribuição (`engine.js`)

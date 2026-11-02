@@ -86,7 +86,9 @@
     const chave = `${ano}/${uf}`;
     try {
       if (!cache.has(chave)) {
-        const r = await fetch(url(`data/${chave}.json`));
+        // "no-cache" = revalida com o servidor (304 se nada mudou), para nunca misturar
+        // um app.js novo com dados antigos guardados pelo navegador.
+        const r = await fetch(url(`data/${chave}.json`), { cache: "no-cache" });
         if (!r.ok) throw new Error(r.status);
         cache.set(chave, await r.json());
       }
