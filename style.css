@@ -129,6 +129,8 @@ tr.seu td { background: var(--accent-soft); font-weight: 600; }
 .modelo p, .modelo li { color: var(--muted); }
 .fonte { font-size: .85rem; }
 .rodape { color: var(--muted); font-size: .85rem; padding-block: 0 40px; }
+.rodape a { color: var(--accent); white-space: nowrap; text-underline-offset: 2px; }
+.rodape a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
 
 @media (max-width: 520px) {
   .card { padding: 18px; }
