@@ -334,7 +334,19 @@
     return imagens;
   }
 
-  async function compartilharImagem(botao, arquivoPromessa, rotulo) {
+  async function compartilharImagem(botao, arquivoPromessa, rotulo, link) {
+    // Copia o link junto (sem esperar, para não perder o "toque" que libera o menu de
+    // compartilhar): no Instagram, a pessoa cola no adesivo "Link" do Stories.
+    let copiou = Promise.resolve(false);
+    try { copiou = navigator.clipboard.writeText(link).then(() => true, () => false); } catch (e) { /* sem área de transferência */ }
+    copiou.then((ok) => {
+      const dica = el.resultado.querySelector(".dica-imagem");
+      if (dica) {
+        dica.textContent = ok ? "Link copiado. No Stories do Instagram, toque no adesivo “Link” e cole."
+                              : `No Stories do Instagram, use o adesivo “Link” com o endereço ${link}`;
+        dica.hidden = false;
+      }
+    });
     const arquivo = await arquivoPromessa;
     if (!arquivo) { botao.textContent = "Não foi possível gerar a imagem"; return; }
     if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
@@ -499,6 +511,7 @@
             <button type="button" class="rede botao-imagem" data-formato="story">Stories (vertical)</button>
             <button type="button" class="rede botao-imagem" data-formato="feed">Feed (quadrada)</button>
           </div>
+          <p class="dica-imagem" role="status" hidden></p>
         </div>
       </div>`;
 
@@ -512,7 +525,7 @@
       const imagens = prepararImagens(specCartao(r, escolha), escolha);
       el.resultado.querySelectorAll(".botao-imagem").forEach((b) => {
         const rotulo = b.textContent;
-        b.addEventListener("click", () => compartilharImagem(b, imagens[b.dataset.formato], rotulo));
+        b.addEventListener("click", () => compartilharImagem(b, imagens[b.dataset.formato], rotulo, share.link));
       });
     } else {
       el.resultado.querySelector(".imagens").hidden = true;

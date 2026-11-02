@@ -194,21 +194,36 @@
     ctx.fillStyle = COR.fundo;
     ctx.fillRect(0, 0, f.w, f.h);
 
-    // ---- rodapé (desenhado primeiro, para saber quanto espaço sobra) ----
-    const altRodape = f.rodape * 3.2;
+    // ---- rodapé: faixa verde com o endereço em destaque (desenhada primeiro,
+    // para saber quanto espaço sobra para o conteúdo) ----
+    const tamUrl = Math.round(f.rodape * 1.3);
+    const folga = Math.round(f.rodape * 0.85);
+    // endereço em duas linhas: "chicocvenancio.github.io/" e "Para-onde-foi-o-seu-voto"
+    const corte = spec.endereco.indexOf("/");
+    const linhasUrl = corte > 0 ? [spec.endereco.slice(0, corte + 1), spec.endereco.slice(corte + 1)] : [spec.endereco];
+    const altRodape = folga * 2 + f.rodape * 1.35 + tamUrl * 1.12 * linhasUrl.length;
     // Nos Stories, a barra de perfil (topo) e a caixa de resposta (base) cobrem ~250 px.
     const yRodape = f.h - f.padV - altRodape;
-    ctx.fillStyle = COR.linha;
-    ctx.fillRect(f.pad, yRodape, largura, 3);
-    const lado = f.rodape * 2.1;
-    if (img) ctx.drawImage(img, f.pad, yRodape + (altRodape - lado) / 2 + 6, lado, lado);
-    const xTexto = f.pad + (img ? lado + f.rodape * 0.6 : 0);
-    ctx.fillStyle = COR.suave;
-    ctx.font = `400 ${f.rodape}px ${TEXTO}`;
-    ctx.fillText("Descubra para onde foi o seu voto:", xTexto, yRodape + f.rodape * 1.55);
     ctx.fillStyle = COR.acento;
-    ctx.font = `700 ${f.rodape}px ${TEXTO}`;
-    ctx.fillText(cortar(ctx, spec.endereco, f.w - f.pad - xTexto), xTexto, yRodape + f.rodape * 2.75);
+    retangulo(ctx, f.pad, yRodape, largura, altRodape, f.rodape * 0.6);
+    const lado = Math.round(Math.min(altRodape - folga * 2, f.rodape * 3.4));
+    let xTexto = f.pad + folga;
+    if (img) {
+      ctx.fillStyle = COR.fundo;
+      retangulo(ctx, xTexto, yRodape + (altRodape - lado) / 2, lado, lado, lado * 0.2);
+      const m = lado * 0.12;
+      ctx.drawImage(img, xTexto + m, yRodape + (altRodape - lado) / 2 + m, lado - 2 * m, lado - 2 * m);
+      xTexto += lado + folga;
+    }
+    const larguraTexto = f.pad + largura - folga - xTexto;
+    let yT = yRodape + folga + f.rodape;
+    ctx.fillStyle = "rgba(255,255,255,.82)";
+    ctx.font = `600 ${f.rodape}px ${TEXTO}`;
+    ctx.fillText(cortar(ctx, "Descubra para onde foi o seu voto:", larguraTexto), xTexto, yT);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `700 ${tamUrl}px ${TEXTO}`;
+    yT += f.rodape * 0.35;
+    for (const l of linhasUrl) { yT += tamUrl * 1.12; ctx.fillText(cortar(ctx, l, larguraTexto), xTexto, yT); }
 
     // ---- conteúdo: mede numa tela de rascunho e centraliza no espaço livre ----
     const rascunho = document.createElement("canvas");
