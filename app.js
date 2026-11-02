@@ -211,18 +211,91 @@
     document.title = titulo ? `${titulo} · ${MARCA}` : TITULO;
   }
 
-  async function copiarLink(botao) {
-    const link = location.href;
-    try {
-      await navigator.clipboard.writeText(link);
-      botao.textContent = "Link copiado";
-    } catch (e) {
-      const campo = botao.parentElement.querySelector(".link-texto");
-      campo.hidden = false;
-      campo.select();
-      botao.textContent = "Copie o link ao lado";
+  // ---------- compartilhar ----------
+
+  // Link para compartilhar: a página principal com ?v=UF/numero. No GitHub Pages os
+  // caminhos /UF/numero passam pelo 404.html (status 404), e as redes podem não mostrar
+  // a prévia; com ?v= a resposta é 200 com a prévia do site.
+  function linkCompartilhavel(escolha) {
+    return `${BASE.href}?v=${rotaAtual(escolha)}`;
+  }
+
+  function listaEleitos(partes) {
+    const nomes = partes.slice(0, 3).map((p) => `${p.cand.nome} (${fmtPct(p.frac)})`);
+    const resto = partes.length - nomes.length;
+    if (resto > 0) return `${nomes.join(", ")} e mais ${resto}`;
+    return nomes.length > 1 ? `${nomes.slice(0, -1).join(", ")} e ${nomes.at(-1)}` : nomes[0];
+  }
+
+  function textoCompartilhar(r, escolha) {
+    const onde = `${emUF(dados.uf)} em ${dados.ano}`;
+    if (r.tipo === "branco" || r.tipo === "nulo") {
+      return `Votei ${r.tipo === "branco" ? "em branco" : "nulo"} para deputado federal ${onde}: meu voto não foi para ninguém. Descubra para onde foi o seu:`;
     }
-    setTimeout(() => { botao.textContent = "Copiar link"; }, 2500);
+    const fim = " Descubra para onde foi o seu:";
+    const c = r.candidato;
+    if (r.tipo === "legenda") {
+      return r.partes.length
+        ? `Meu voto na legenda ${escolha.partido} ${onde} ajudou a eleger ${listaEleitos(r.partes)}.${fim}`
+        : `Meu voto na legenda ${escolha.partido} ${onde} não ajudou a eleger ninguém: ${r.grupo.id[0] === "F" ? "a federação" : "o partido"} não conquistou vagas.${fim}`;
+    }
+    const votei = `Votei em ${c.nome} (${c.partido}) ${onde}`;
+    if (!r.partes.length) {
+      return `${votei}, mas meu voto não ajudou a eleger ninguém: ${r.grupo.id[0] === "F" ? "a federação" : "o partido"} não conquistou vagas.${fim}`;
+    }
+    const meu = r.partes.find((p) => p.cand === c);
+    if (!meu) {
+      return `${votei}. ${gen(c, "Ele", "Ela")} não foi ${gen(c, "eleito", "eleita")}, mas meu voto ajudou a eleger ${listaEleitos(r.partes)}.${fim}`;
+    }
+    if (r.partes.length === 1) {
+      return `${votei}: ${gen(c, "ele foi eleito", "ela foi eleita")} e todo o meu voto ficou com ${gen(c, "ele", "ela")}.${fim}`;
+    }
+    const outros = r.partes.filter((p) => p !== meu);
+    const nomes = outros.slice(0, 3).map((p) => p.cand.nome);
+    const lista = outros.length > 3 ? `${nomes.join(", ")} e mais ${outros.length - 3}`
+      : nomes.length > 1 ? `${nomes.slice(0, -1).join(", ")} e ${nomes.at(-1)}` : nomes[0];
+    return `${votei}: ${fmtPct(meu.frac)} do meu voto ficou com ${gen(c, "ele", "ela")} e o resto ajudou a eleger ${lista}.${fim}`;
+  }
+
+  function botoesRedes(texto, link) {
+    const t = encodeURIComponent(texto), u = encodeURIComponent(link), tu = encodeURIComponent(`${texto} ${link}`);
+    const redes = [
+      ["WhatsApp", `https://wa.me/?text=${tu}`],
+      ["Telegram", `https://t.me/share/url?url=${u}&text=${t}`],
+      ["X", `https://x.com/intent/post?text=${t}&url=${u}`],
+      ["Bluesky", `https://bsky.app/intent/compose?text=${tu}`],
+      ["Reddit", `https://www.reddit.com/submit?url=${u}&title=${t}`],
+    ];
+    return redes.map(([nome, href]) => `<a class="rede" href="${esc(href)}" target="_blank" rel="noopener">${nome}</a>`).join("");
+  }
+
+  async function copiar(texto, botao, rotulo, avisoOk) {
+    try {
+      await navigator.clipboard.writeText(texto);
+      botao.textContent = avisoOk;
+    } catch (e) {
+      // Sem acesso à área de transferência: mostra o texto selecionado para copiar à mão.
+      const campo = el.resultado.querySelector(".texto-compartilhar");
+      campo.hidden = false;
+      campo.value = texto;
+      campo.focus();
+      campo.select();
+      botao.textContent = "Copie o texto abaixo";
+    }
+    setTimeout(() => { botao.textContent = rotulo; }, 3000);
+  }
+
+  async function compartilhar(botao, dadosCompartilhar) {
+    const { titulo, texto, link } = dadosCompartilhar;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: titulo, text: texto, url: link });
+        return;
+      } catch (e) {
+        if (e && e.name === "AbortError") return; // a pessoa fechou a janela de compartilhar
+      }
+    }
+    copiar(`${texto} ${link}`, botao, "Compartilhar meu resultado", "Texto e link copiados. É só colar!");
   }
 
   // ---------- autocompletar ----------
@@ -341,18 +414,21 @@
         ${a.eleitos.length ? tabelaEleitos(a, r.candidato) : ""}`;
     }
 
+    const share = { titulo: `${titulo} · ${MARCA}`, texto: textoCompartilhar(r, escolha), link: linkCompartilhavel(escolha) };
     html += `
       <div class="compartilhar">
-        <button type="button" class="botao-link">Copiar link</button>
-        <input class="link-texto" type="text" readonly aria-label="Link deste resultado" hidden>
+        <button type="button" class="botao-compartilhar">Compartilhar meu resultado</button>
+        <div class="redes" aria-label="Compartilhar em">${botoesRedes(share.texto, share.link)}
+          <button type="button" class="rede botao-copiar-link">Copiar link</button></div>
+        <textarea class="texto-compartilhar" rows="3" readonly aria-label="Texto para compartilhar" hidden></textarea>
       </div>`;
 
     el.resultado.innerHTML = html;
     el.resultado.hidden = false;
     atualizarRota(escolha, titulo);
-    const campo = el.resultado.querySelector(".link-texto");
-    campo.value = location.href;
-    el.resultado.querySelector(".botao-link").addEventListener("click", (ev) => copiarLink(ev.currentTarget));
+    el.resultado.querySelector(".botao-compartilhar").addEventListener("click", (ev) => compartilhar(ev.currentTarget, share));
+    el.resultado.querySelector(".botao-copiar-link").addEventListener("click", (ev) =>
+      copiar(share.link, ev.currentTarget, "Copiar link", "Link copiado"));
     el.resultado.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
