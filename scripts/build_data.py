@@ -2,7 +2,9 @@
 """Gera data/<ano>/<UF>.json a partir dos dados abertos do TSE (Deputado Federal).
 
 Uso:
-    python3 scripts/build_data.py 2022 [2026 ...]
+    python3 scripts/build_data.py 2022 [2026 ...] [federal|estadual]
+
+(sem cargo, gera os dois: deputado federal e deputado estadual/distrital)
 
 Baixa (e guarda em cache em scripts/.cache/) três arquivos do Portal de Dados
 Abertos do TSE para cada ano:
@@ -27,7 +29,9 @@ from pathlib import Path
 BASE = "https://cdn.tse.jus.br/estatistica/sead/odsele"
 ROOT = Path(__file__).resolve().parent.parent
 CACHE = Path(__file__).resolve().parent / ".cache"
-CARGO_DEP_FED = "6"
+# Código do cargo no TSE: 6 = deputado federal, 7 = deputado estadual, 8 = deputado distrital (DF).
+# Os distritais entram junto com os estaduais (pasta "estadual").
+CARGOS = {"federal": {"6"}, "estadual": {"7", "8"}}
 UFS = ("AC AL AM AP BA CE DF ES GO MA MG MS MT PA PB PE PI PR RJ RN RO RR RS SC SE SP TO").split()
 NULOS = {"#NULO#", "#NE#", "#NULO", "-1", "-3", ""}
 
@@ -108,18 +112,19 @@ def titulo(nome: str) -> str:
     return " ".join(p if (i and p in MINUSCULAS) else p[:1].upper() + p[1:] for i, p in enumerate(partes))
 
 
-def eh_dep_fed(row) -> bool:
-    return col(row, "CD_CARGO", default="") == CARGO_DEP_FED and col(row, "NR_TURNO", default="1") == "1"
+def do_cargo(row, cargos: set) -> bool:
+    return col(row, "CD_CARGO", default="") in cargos and col(row, "NR_TURNO", default="1") == "1"
 
 
-def generos(zip_path: Path, uf: str) -> dict[str, bool]:
+def generos(zip_path: Path, uf: str, cargos: set) -> dict[str, bool]:
     """SQ_CANDIDATO -> True se o gênero declarado ao TSE é feminino."""
     return {row["SQ_CANDIDATO"]: row.get("DS_GENERO", "").strip().upper() == "FEMININO"
-            for row in linhas(zip_path, uf) if col(row, "CD_CARGO", default="") == CARGO_DEP_FED}
+            for row in linhas(zip_path, uf) if col(row, "CD_CARGO", default="") in cargos}
 
 
-def processar(ano: int, uf: str, zips: dict) -> dict | None:
-    feminino = generos(zips["cand_info"], uf)
+def processar(ano: int, uf: str, zips: dict, cargo: str = "federal") -> dict | None:
+    cargos = CARGOS[cargo]
+    feminino = generos(zips["cand_info"], uf, cargos)
     cands: dict[str, dict] = {}
     grupos: dict[str, dict] = {}
     partidos_legenda = defaultdict(int)
@@ -132,7 +137,7 @@ def processar(ano: int, uf: str, zips: dict) -> dict | None:
         return gid
 
     for row in linhas(zips["cand"], uf):
-        if not eh_dep_fed(row):
+        if not do_cargo(row, cargos):
             continue
         sq = row["SQ_CANDIDATO"]
         votos = num(col(row, "QT_VOTOS_NOMINAIS_VALIDOS", "QT_VOTOS_NOMINAIS"))
@@ -156,7 +161,7 @@ def processar(ano: int, uf: str, zips: dict) -> dict | None:
         return None
 
     for row in linhas(zips["partido"], uf):
-        if not eh_dep_fed(row):
+        if not do_cargo(row, cargos):
             continue
         # Total de legenda inclui votos nominais de candidatos com registro negado
         # que a lei manda contar para o partido ("convertidos em legenda").
@@ -168,7 +173,7 @@ def processar(ano: int, uf: str, zips: dict) -> dict | None:
 
     totais = defaultdict(int)
     for row in linhas(zips["detalhe"], uf):
-        if not eh_dep_fed(row):
+        if not do_cargo(row, cargos):
             continue
         for campo in ("QT_APTOS", "QT_COMPARECIMENTO", "QT_ABSTENCOES", "QT_VOTOS_BRANCOS",
                       "QT_VOTOS_NULOS", "QT_TOTAL_VOTOS_NULOS", "QT_VOTOS_NOMINAIS_VALIDOS",
@@ -201,6 +206,7 @@ def processar(ano: int, uf: str, zips: dict) -> dict | None:
 
     return {
         "ano": ano, "uf": uf, "vagas": vagas,
+        "cargo": "distrital" if cargo == "estadual" and uf == "DF" else cargo,
         "validos": validos,
         "brancos": totais.get("QT_VOTOS_BRANCOS", 0),
         "nulos": nulos,
@@ -212,7 +218,7 @@ def processar(ano: int, uf: str, zips: dict) -> dict | None:
     }
 
 
-def main(anos):
+def main(anos, cargos=("federal", "estadual")):
     for ano in anos:
         zips = {
             "cand": baixar("votacao_candidato_munzona", ano),
@@ -220,24 +226,30 @@ def main(anos):
             "detalhe": baixar("detalhe_votacao_munzona", ano),
             "cand_info": baixar("consulta_cand", ano),
         }
-        pasta = ROOT / "data" / str(ano)
-        pasta.mkdir(parents=True, exist_ok=True)
-        feitos = []
-        for uf in UFS:
-            dados = processar(ano, uf, zips)
-            if dados is None:
-                print(f"{ano} {uf}: sem dados", file=sys.stderr)
-                continue
-            (pasta / f"{uf}.json").write_text(json.dumps(dados, ensure_ascii=False, separators=(",", ":")))
-            feitos.append(uf)
-            print(f"{ano} {uf}: {dados['vagas']} vagas, {len(dados['candidatos'])} candidatos", file=sys.stderr)
-        indice_path = ROOT / "data" / "index.json"
-        indice = json.loads(indice_path.read_text()) if indice_path.exists() else {"anos": {}}
-        indice["anos"][str(ano)] = feitos
-        indice_path.write_text(json.dumps(indice, ensure_ascii=False, indent=1))
+        for cargo in cargos:
+            # federal: data/<ano>/<UF>.json (caminho original); estadual: data/<ano>/estadual/<UF>.json
+            pasta = ROOT / "data" / str(ano) / ("" if cargo == "federal" else cargo)
+            pasta.mkdir(parents=True, exist_ok=True)
+            feitos = []
+            for uf in UFS:
+                dados = processar(ano, uf, zips, cargo)
+                if dados is None:
+                    print(f"{ano} {cargo} {uf}: sem dados", file=sys.stderr)
+                    continue
+                (pasta / f"{uf}.json").write_text(json.dumps(dados, ensure_ascii=False, separators=(",", ":")))
+                feitos.append(uf)
+                print(f"{ano} {cargo} {uf}: {dados['vagas']} vagas, {len(dados['candidatos'])} candidatos", file=sys.stderr)
+            indice_path = ROOT / "data" / "index.json"
+            indice = json.loads(indice_path.read_text()) if indice_path.exists() else {"anos": {}}
+            # "anos" continua sendo o índice dos federais (compatível com versões antigas do site)
+            chave = "anos" if cargo == "federal" else cargo
+            indice.setdefault(chave, {})[str(ano)] = feitos
+            indice_path.write_text(json.dumps(indice, ensure_ascii=False, indent=1))
 
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         sys.exit(__doc__)
-    main([int(a) for a in sys.argv[1:]])
+    args = sys.argv[1:]
+    cargos = tuple(a for a in args if a in CARGOS) or ("federal", "estadual")
+    main([int(a) for a in args if a.isdigit()], cargos)

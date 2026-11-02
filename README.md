@@ -1,7 +1,7 @@
 # Para onde foi o seu voto?
 
-Site educativo sobre o sistema proporcional da Câmara dos Deputados. O usuário escolhe o estado e como votou
-(candidato, legenda, branco ou nulo) e vê quais deputados federais o voto ajudou a eleger, e em que proporção.
+Site educativo sobre o sistema proporcional da Câmara dos Deputados e das Assembleias Legislativas. O usuário escolhe o estado e como votou
+(candidato, legenda, branco ou nulo) e vê quais deputados (federais, estaduais ou distritais) o voto ajudou a eleger, e em que proporção.
 
 **Site:** https://chicocvenancio.github.io/Para-onde-foi-o-seu-voto/
 
@@ -17,6 +17,7 @@ Cada resultado tem endereço próprio, que pode ser compartilhado:
 - `/2022/SP/5010`: o mesmo para outra eleição
 - `/MA/13` ou `/MA/PT`: voto de legenda
 - `/MA/branco` e `/MA/nulo`
+- `/estadual/SP/13133` ou `/2022/estadual/RJ/50`: deputado estadual (distrital no DF); um número de 5 dígitos, como `/SP/13133`, já abre como estadual
 
 Como o GitHub Pages só serve arquivos que existem, o `404.html` redireciona esses caminhos para a página principal,
 que abre o resultado e mantém o endereço original na barra do navegador.
@@ -28,7 +29,7 @@ python3 scripts/build_data.py 2022 2026
 ```
 
 Baixa do Portal de Dados Abertos do TSE (`cdn.tse.jus.br`) os arquivos `votacao_candidato_munzona`,
-`votacao_partido_munzona`, `detalhe_votacao_munzona` e `consulta_cand` (gênero, para a concordância do texto) e gera `data/<ano>/<UF>.json` + `data/index.json`.
+`votacao_partido_munzona`, `detalhe_votacao_munzona` e `consulta_cand` (gênero, para a concordância do texto) e gera `data/<ano>/<UF>.json` (deputado federal), `data/<ano>/estadual/<UF>.json` (estadual e distrital) e `data/index.json`.
 
 ## Rodar localmente
 

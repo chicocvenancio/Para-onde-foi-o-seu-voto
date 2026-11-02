@@ -16,6 +16,11 @@
   const emUF = (uf) => `${NO[uf] || "em"} ${NOMES_UF[uf]}`;
   const maiuscula = (s) => s[0].toUpperCase() + s.slice(1);
 
+  // Cargos: "federal" (Câmara dos Deputados) e "estadual" (Assembleia Legislativa;
+  // no DF, deputado distrital na Câmara Legislativa).
+  const nomeCargo = (d) => d.cargo === "federal" ? "deputado federal" : d.uf === "DF" ? "deputado distrital" : "deputado estadual";
+  const DIGITOS = { federal: 4, estadual: 5 };
+
   // Concordância: "f" vem do gênero declarado ao TSE.
   const gen = (c, masc, fem) => (c && c.f ? fem : masc);
   const todasMulheres = (lista) => lista.length > 0 && lista.every((c) => c.f);
@@ -36,7 +41,7 @@
     uf: $("uf"), ano: $("ano"), passoTipo: $("passo-tipo"), passoEscolha: $("passo-escolha"),
     escCand: $("escolha-candidato"), escLeg: $("escolha-legenda"), busca: $("busca"),
     sugestoes: $("sugestoes"), partido: $("partido"), aviso: $("aviso"), resultado: $("resultado"),
-    resumoUF: $("resumo-uf"),
+    resumoUF: $("resumo-uf"), cargo: $("cargo"), legendaTipo: $("legenda-tipo"), descCandidato: $("desc-candidato"),
   };
   const TITULO = document.title;              // título completo da página inicial
   const MARCA = "Para onde foi o seu voto?";  // sufixo curto nos resultados
@@ -47,7 +52,7 @@
     const casas = Math.round(p * 10) / 10 >= 10 ? 0 : Math.round(p * 100) / 100 >= 1 ? 1 : 2;
     return p.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas }) + "%";
   };
-  const semAcento = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const semAcento = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
   let indice = null;
@@ -60,6 +65,28 @@
     el.aviso.innerHTML = msg || "";
   }
 
+  const cargoAtual = () => (el.cargo && el.cargo.value) || "federal";
+  // "anos" é o índice dos federais; os estaduais ficam em "estadual"
+  const indiceDo = (cargo) => (cargo === "federal" ? indice.anos : indice[cargo]) || {};
+
+  function preencherAnos() {
+    const atual = el.ano.value;
+    const anos = Object.keys(indiceDo(cargoAtual())).sort().reverse();
+    anoMaisRecente = anos[0];
+    el.ano.innerHTML = anos.map((a) => `<option value="${a}">Eleição ${a}</option>`).join("");
+    if (anos.includes(atual)) el.ano.value = atual;
+    el.ano.hidden = anos.length < 2;
+  }
+
+  // Textos do quiz que dependem do cargo (com o estado escolhido, "distrital" no DF).
+  function atualizarTextosCargo() {
+    const cargo = cargoAtual();
+    const nome = nomeCargo({ cargo, uf: el.uf.value });
+    if (el.legendaTipo) el.legendaTipo.textContent = `Como você votou para ${nome}?`;
+    if (el.descCandidato) el.descCandidato.textContent = `Digitei o número de ${DIGITOS[cargo]} dígitos`;
+    el.busca.placeholder = `Ex.: Maria ou ${cargo === "federal" ? "1234" : "12345"}`;
+  }
+
   async function iniciar() {
     try {
       const r = await fetch(url("data/index.json"), { cache: "no-cache" });
@@ -70,16 +97,15 @@
       el.uf.disabled = true;
       return;
     }
-    const anos = Object.keys(indice.anos).sort().reverse();
-    anoMaisRecente = anos[0];
-    el.ano.innerHTML = anos.map((a) => `<option value="${a}">Eleição ${a}</option>`).join("");
-    el.ano.hidden = anos.length < 2;
+    if (el.cargo && !indice.estadual) el.cargo.hidden = true;
+    preencherAnos();
     preencherUFs();
+    atualizarTextosCargo();
     await abrirRota(lerRota());
   }
 
   function preencherUFs() {
-    const ufs = indice.anos[el.ano.value] || [];
+    const ufs = indiceDo(cargoAtual())[el.ano.value] || [];
     const atual = el.uf.value;
     el.uf.innerHTML = '<option value="">Escolha o estado…</option>' +
       ufs.slice().sort((a, b) => NOMES_UF[a].localeCompare(NOMES_UF[b], "pt-BR"))
@@ -88,17 +114,20 @@
   }
 
   async function carregarUF({ automatico = false } = {}) {
-    const uf = el.uf.value, ano = el.ano.value;
+    const uf = el.uf.value, ano = el.ano.value, cargo = cargoAtual();
     el.resultado.hidden = true;
+    atualizarTextosCargo();
     if (!uf) { dados = null; el.passoTipo.disabled = true; mostrarResumoUF(); atualizarRota(); return false; }
-    const chave = `${ano}/${uf}`;
+    const chave = `${ano}/${cargo === "federal" ? "" : cargo + "/"}${uf}`;
     try {
       if (!cache.has(chave)) {
         // "no-cache" = revalida com o servidor (304 se nada mudou), para nunca misturar
         // um app.js novo com dados antigos guardados pelo navegador.
         const r = await fetch(url(`data/${chave}.json`), { cache: "no-cache" });
         if (!r.ok) throw new Error(r.status);
-        cache.set(chave, await r.json());
+        const d = await r.json();
+        d.cargo = cargo;
+        cache.set(chave, d);
       }
     } catch (e) {
       aviso("Não foi possível carregar os dados deste estado. Verifique a conexão e tente de novo.");
@@ -126,7 +155,7 @@
     const item = (rotulo, valor, nota) =>
       `<div class="item"><dt>${rotulo}</dt><dd><span class="valor">${valor}</span>${nota ? `<span class="nota">${nota}</span>` : ""}</dd></div>`;
     el.resumoUF.innerHTML =
-      `<p class="titulo-resumo">${esc(maiuscula(emUF(dados.uf)))}, eleição ${esc(dados.ano)}</p><dl>` +
+      `<p class="titulo-resumo">${esc(maiuscula(emUF(dados.uf)))}, ${nomeCargo(dados)}, eleição ${esc(dados.ano)}</p><dl>` +
       item("Vagas", fmt.format(dados.vagas)) +
       item("Votos válidos", fmt.format(dados.validos)) +
       item("Quociente eleitoral", `${fmt.format(Math.round(qe))} votos`,
@@ -179,20 +208,25 @@
     if (!partes.length) return null;
     const rota = {};
     if (/^\d{4}$/.test(partes[0])) rota.ano = partes.shift();
+    if (/^(estadual|distrital)$/i.test(partes[0] || "")) { rota.cargo = "estadual"; partes.shift(); }
     if (!partes.length) return rota;
     rota.uf = partes.shift().toUpperCase();
     if (partes.length) rota.voto = partes.shift();
+    if (!rota.cargo && /^\d{5}$/.test(rota.voto || "")) rota.cargo = "estadual"; // só estadual tem 5 dígitos
     return rota;
   }
 
   async function abrirRota(rota) {
     if (!rota) return;
+    if (el.cargo && rota.cargo && indice[rota.cargo]) { el.cargo.value = rota.cargo; preencherAnos(); }
+    const idx = indiceDo(cargoAtual());
     const ano = rota.ano || anoMaisRecente;
-    if (!indice.anos[ano]) { aviso(`Não temos dados da eleição de ${esc(ano)}.`); return; }
+    if (!idx[ano]) { aviso(`Não temos dados da eleição de ${esc(ano)}.`); return; }
     el.ano.value = ano;
     preencherUFs();
+    atualizarTextosCargo();
     if (!rota.uf) return;
-    if (!indice.anos[ano].includes(rota.uf)) { aviso(`Não encontramos o estado “${esc(rota.uf)}”. Use a sigla, como MA ou SP.`); return; }
+    if (!idx[ano].includes(rota.uf)) { aviso(`Não encontramos o estado “${esc(rota.uf)}”. Use a sigla, como MA ou SP.`); return; }
     el.uf.value = rota.uf;
     if (!(await carregarUF({ automatico: true }))) return;
     const v = rota.voto;
@@ -218,7 +252,7 @@
 
   function rotaAtual(escolha) {
     if (!dados) return "";
-    let r = (el.ano.value !== anoMaisRecente ? el.ano.value + "/" : "") + dados.uf;
+    let r = (el.ano.value !== anoMaisRecente ? el.ano.value + "/" : "") + (dados.cargo === "estadual" ? "estadual/" : "") + dados.uf;
     if (escolha) {
       if (escolha.tipo === "candidato") r += "/" + escolha.numero;
       else if (escolha.tipo === "legenda") r += "/" + numeroDoPartido(escolha.partido);
@@ -252,7 +286,7 @@
   function textoCompartilhar(r, escolha) {
     const onde = `${emUF(dados.uf)} em ${dados.ano}`;
     if (r.tipo === "branco" || r.tipo === "nulo") {
-      return `Votei ${r.tipo === "branco" ? "em branco" : "nulo"} para deputado federal ${onde}: meu voto não foi para ninguém. Descubra para onde foi o seu:`;
+      return `Votei ${r.tipo === "branco" ? "em branco" : "nulo"} para ${nomeCargo(dados)} ${onde}: meu voto não foi para ninguém. Descubra para onde foi o seu:`;
     }
     const fim = " Descubra para onde foi o seu:";
     const c = r.candidato;
@@ -318,7 +352,7 @@
     const g = r.grupo;
     const eFed = g && g.id[0] === "F";
     const spec = {
-      kicker: `Deputado federal · ${NOMES_UF[dados.uf]} · ${dados.ano}`,
+      kicker: `${maiuscula(nomeCargo(dados))} · ${NOMES_UF[dados.uf]} · ${dados.ano}`,
       endereco: BASE.host + BASE.pathname.replace(/\/$/, ""),
       icone: url("img/favicon.svg"),
       partes: r.partes.map((p) => ({ nome: p.cand.nome, detalhe: p.cand.partido, pct: fmtPct(p.frac), frac: p.frac })),
@@ -472,10 +506,10 @@
       const qeSem = dados.validos / dados.vagas;
       const qeCom = (dados.validos + dados.brancos + dados.nulos) / dados.vagas;
       html = `
-        <p class="kicker">${nomeUF} · ${dados.ano}</p>
+        <p class="kicker">${maiuscula(nomeCargo(dados))} · ${nomeUF} · ${dados.ano}</p>
         <h2>Seu voto não ajudou a eleger ninguém</h2>
         <p class="grande">Votos ${r.tipo === "branco" ? "em branco" : "nulos"} não vão para nenhum candidato nem partido.
-          ${maiuscula(emUF(dados.uf))}, <strong>${fmt.format(qtd)}</strong> eleitores votaram ${r.tipo === "branco" ? "em branco" : "nulo"} para deputado federal.</p>
+          ${maiuscula(emUF(dados.uf))}, <strong>${fmt.format(qtd)}</strong> eleitores votaram ${r.tipo === "branco" ? "em branco" : "nulo"} para ${nomeCargo(dados)}.</p>
         <div class="numeros">
           ${numero("Votos válidos", fmt.format(dados.validos))}
           ${numero("Brancos", fmt.format(dados.brancos))}
@@ -498,7 +532,7 @@
       const desc = eFed ? `federação ${esc(g.sigla)} (${g.partidos.map(esc).join(", ")})` : `partido ${esc(g.sigla)}`;
       const nomeGrupo = { de: (eFed ? "da " : "do ") + desc, para: (eFed ? "para a " : "para o ") + desc };
 
-      html = `<p class="kicker">${nomeUF} · ${dados.ano} · seu voto</p><h2>${cabecalho}</h2>`;
+      html = `<p class="kicker">${maiuscula(nomeCargo(dados))} · ${nomeUF} · ${dados.ano}</p><h2>${cabecalho}</h2>`;
 
       if (!r.partes.length) {
         const inicio = r.tipo === "candidato"
@@ -638,6 +672,7 @@
 
   // ---------- eventos ----------
   el.ano.addEventListener("change", () => { preencherUFs(); carregarUF(); });
+  if (el.cargo) el.cargo.addEventListener("change", () => { preencherAnos(); preencherUFs(); carregarUF(); });
   el.uf.addEventListener("change", () => carregarUF());
   document.querySelectorAll('input[name="tipo"]').forEach((r) => r.addEventListener("change", mudarTipo));
   el.partido.addEventListener("change", () => el.partido.value && mostrar({ tipo: "legenda", partido: el.partido.value }));

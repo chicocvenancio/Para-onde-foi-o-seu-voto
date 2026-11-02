@@ -125,3 +125,18 @@ test("sem sobra, o resultado não muda (Creuzamar, MA 2026)", () => {
   assert.strictEqual(r.sobra, 0);
   assert.deepStrictEqual(r.partes.map((p) => [p.cand.nome, Math.round(p.frac * 1000)]), [["Márcio Jerry", 622], ["Rubens Pereira Jr", 378]]);
 });
+
+test("deputado estadual (SP 2026) e distrital (DF 2026): mesmas regras, soma 100%", () => {
+  const sp = require(path.join(__dirname, "..", "data", "2026", "estadual", "SP.json"));
+  const df = require(path.join(__dirname, "..", "data", "2026", "estadual", "DF.json"));
+  assert.strictEqual(sp.vagas, 94);
+  assert.strictEqual(df.vagas, 24);
+  assert.strictEqual(df.cargo, "distrital");
+  for (const d of [sp, df]) {
+    for (const c of d.candidatos.slice(0, 50)) {
+      assert.strictEqual(c.n.length, 5, `número de 5 dígitos: ${c.n}`);
+      const r = Motor.atribuir(d, { tipo: "candidato", numero: c.n });
+      if (r.partes.length) perto(soma(r), 1, `${d.uf} ${c.nome}`);
+    }
+  }
+});
