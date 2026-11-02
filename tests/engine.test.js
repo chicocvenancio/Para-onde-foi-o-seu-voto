@@ -140,3 +140,18 @@ test("deputado estadual (SP 2026) e distrital (DF 2026): mesmas regras, soma 100
     }
   }
 });
+
+test("vereador (Campinas 2024): dados por município, soma 100%; municípios sem votação ficam listados", () => {
+  const idx = require(path.join(__dirname, "..", "data", "2024", "vereador", "index.json"));
+  const campinas = idx.SP.find(([, nome]) => nome === "Campinas");
+  assert.ok(campinas, "Campinas no índice");
+  const d = require(path.join(__dirname, "..", "data", "2024", "vereador", "SP", `${campinas[0]}.json`));
+  assert.strictEqual(d.cargo, "vereador");
+  assert.strictEqual(d.vagas, campinas[2]);
+  assert.strictEqual(d.candidatos.filter((c) => c.eleito).length, d.vagas);
+  for (const c of d.candidatos) {
+    const r = Motor.atribuir(d, { tipo: "candidato", numero: c.n });
+    if (r.partes.length) perto(soma(r), 1, c.nome);
+  }
+  assert.ok((idx.semDados.PA || []).some(([, nome]) => nome === "Ananindeua"), "Ananindeua sem dados em 2024");
+});

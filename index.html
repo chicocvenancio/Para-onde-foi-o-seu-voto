@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="claude:viewport-fit-sides" content="cover">
   <title>Para onde foi o seu voto? Veja quem ele ajudou a eleger</title>
-  <meta name="description" content="Descubra quais deputados federais e estaduais o seu voto ajudou a eleger, e em que proporção. Dados oficiais do TSE de 2022 e 2026.">
+  <meta name="description" content="Descubra quais deputados e vereadores o seu voto ajudou a eleger, e em que proporção. Dados oficiais do TSE de 2020 a 2026.">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Para onde foi o seu voto?">
   <meta property="og:title" content="Para onde foi o seu voto? Veja quem ele ajudou a eleger">
-  <meta property="og:description" content="Descubra quais deputados federais e estaduais o seu voto ajudou a eleger, e em que proporção. Dados oficiais do TSE de 2022 e 2026.">
+  <meta property="og:description" content="Descubra quais deputados e vereadores o seu voto ajudou a eleger, e em que proporção. Dados oficiais do TSE de 2020 a 2026.">
   <meta property="og:url" content="https://chicocvenancio.github.io/Para-onde-foi-o-seu-voto/">
   <meta property="og:locale" content="pt_BR">
-  <meta property="og:image" content="https://chicocvenancio.github.io/Para-onde-foi-o-seu-voto/img/compartilhar.png?v=5ea732e05c">
+  <meta property="og:image" content="https://chicocvenancio.github.io/Para-onde-foi-o-seu-voto/img/compartilhar.png?v=aa3a5796e5">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="Para onde foi o seu voto? Veja quais deputados o seu voto ajudou a eleger, e em que proporção. Consulte o seu voto.">
@@ -23,14 +23,14 @@
   <meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#14161a" media="(prefers-color-scheme: dark)">
   <link rel="preload" href="fonts/source-sans-3-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="style.css?v=8e51226b0f">
+  <link rel="stylesheet" href="style.css?v=191ff13784">
 </head>
 <body>
   <header class="topo">
     <div class="wrap">
-      <p class="kicker">Deputados federais e estaduais · sistema proporcional</p>
+      <p class="kicker">Deputados e vereadores · sistema proporcional</p>
       <h1>Para onde foi o seu voto?</h1>
-      <p class="lead">No Brasil, o voto para deputado — federal, estadual ou distrital — vai primeiro para o <strong>partido</strong> (ou federação).
+      <p class="lead">No Brasil, o voto para deputado (federal, estadual ou distrital) e para vereador vai primeiro para o <strong>partido</strong> (ou federação).
         Conte como você votou e veja quais deputados o seu voto ajudou a eleger — e em que proporção.</p>
     </div>
   </header>
@@ -42,14 +42,14 @@
       <div class="passo">
         <span class="num">1</span>
         <div class="campo-linha">
-          <label for="uf">Em qual estado você vota, e para qual cargo?</label>
+          <label for="ano">Em qual eleição, para qual cargo e onde você votou?</label>
           <div class="linha">
-            <select id="uf"><option value="">Escolha o estado…</option></select>
+            <select id="ano" aria-label="Eleição"></select>
             <select id="cargo" aria-label="Cargo">
               <option value="federal">Deputado federal</option>
-              <option value="estadual">Deputado estadual (distrital no DF)</option>
             </select>
-            <select id="ano" aria-label="Eleição" hidden></select>
+            <select id="uf" aria-label="Estado"><option value="">Escolha o estado…</option></select>
+            <select id="municipio" aria-label="Município" hidden></select>
           </div>
           <div class="resumo-uf" id="resumo-uf" hidden aria-live="polite"></div>
         </div>
@@ -97,7 +97,7 @@
       <div class="grade">
         <article>
           <h3>1. O voto vai para o partido</h3>
-          <p>A Câmara dos Deputados e as Assembleias Legislativas usam o sistema <strong>proporcional de lista aberta</strong>. Votando em um candidato ou só na legenda,
+          <p>A Câmara dos Deputados, as Assembleias Legislativas e as Câmaras Municipais usam o sistema <strong>proporcional de lista aberta</strong>. Votando em um candidato ou só na legenda,
             o voto soma para o partido ou federação. As vagas são do partido; depois elas são ocupadas pelos seus candidatos mais votados.</p>
         </article>
         <article>
@@ -134,7 +134,8 @@
           <h3>8. Quantas vagas cada estado tem</h3>
           <p>Na Câmara, as cadeiras são divididas entre os estados conforme a população, com mínimo de 8 e máximo de 70.
             Na Assembleia, o número de deputados estaduais é o triplo da bancada federal até 36; acima disso, soma-se
-            uma vaga para cada deputado federal acima de 12. O número de vagas aparece quando você escolhe o estado.</p>
+            uma vaga para cada deputado federal acima de 12. Nas Câmaras Municipais são de 9 a 55 vereadores, conforme a população.
+            O número de vagas aparece quando você escolhe o estado ou o município.</p>
         </article>
       </div>
 
@@ -164,6 +165,6 @@
 
   <script src="engine.js?v=1281d87219"></script>
   <script src="cartao.js?v=071b9d42b6"></script>
-  <script src="app.js?v=fb9f7578e4"></script>
+  <script src="app.js?v=d9f8a32d10"></script>
 </body>
 </html>

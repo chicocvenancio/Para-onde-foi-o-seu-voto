@@ -18,8 +18,14 @@
 
   // Cargos: "federal" (Câmara dos Deputados) e "estadual" (Assembleia Legislativa;
   // no DF, deputado distrital na Câmara Legislativa).
-  const nomeCargo = (d) => d.cargo === "federal" ? "deputado federal" : d.uf === "DF" ? "deputado distrital" : "deputado estadual";
-  const DIGITOS = { federal: 4, estadual: 5 };
+  const nomeCargo = (d) => d.cargo === "vereador" ? "vereador" : d.cargo === "federal" ? "deputado federal"
+    : d.uf === "DF" ? "deputado distrital" : "deputado estadual";
+  const DIGITOS = { federal: 4, estadual: 5, vereador: 5 };
+  const municipal = (ano) => Number(ano) % 4 === 0; // 2020, 2024: eleições municipais
+  // Onde foi a eleição: o estado (deputados) ou o município (vereadores).
+  const ondeDe = (d) => d.cargo !== "vereador" ? emUF(d.uf)
+    : d.municipio === "Rio de Janeiro" ? "no Rio de Janeiro" : `em ${d.municipio}`;
+  const localDe = (d) => d.cargo === "vereador" ? `${d.municipio} (${d.uf})` : NOMES_UF[d.uf];
 
   // Concordância: "f" vem do gênero declarado ao TSE.
   const gen = (c, masc, fem) => (c && c.f ? fem : masc);
@@ -41,7 +47,7 @@
     uf: $("uf"), ano: $("ano"), passoTipo: $("passo-tipo"), passoEscolha: $("passo-escolha"),
     escCand: $("escolha-candidato"), escLeg: $("escolha-legenda"), busca: $("busca"),
     sugestoes: $("sugestoes"), partido: $("partido"), aviso: $("aviso"), resultado: $("resultado"),
-    resumoUF: $("resumo-uf"), cargo: $("cargo"), legendaTipo: $("legenda-tipo"), descCandidato: $("desc-candidato"),
+    resumoUF: $("resumo-uf"), cargo: $("cargo"), municipio: $("municipio"), legendaTipo: $("legenda-tipo"), descCandidato: $("desc-candidato"),
   };
   const TITULO = document.title;              // título completo da página inicial
   const MARCA = "Para onde foi o seu voto?";  // sufixo curto nos resultados
@@ -53,11 +59,12 @@
     return p.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas }) + "%";
   };
   const semAcento = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const slug = (s) => semAcento(s).replace(/['’]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
   let indice = null;
   let dados = null;
-  let anoMaisRecente = null;
+  const indicesMunicipios = new Map(); // ano -> {UF: [[código, nome, vagas]], semDados: {...}}
   const cache = new Map();
 
   function aviso(msg) {
@@ -66,16 +73,51 @@
   }
 
   const cargoAtual = () => (el.cargo && el.cargo.value) || "federal";
-  // "anos" é o índice dos federais; os estaduais ficam em "estadual"
+  // "anos" é o índice dos federais; os outros cargos ficam em "estadual" e "vereador"
   const indiceDo = (cargo) => (cargo === "federal" ? indice.anos : indice[cargo]) || {};
+  const anoMaisRecenteDo = (cargo) => Object.keys(indiceDo(cargo)).sort().pop();
+  const NOMES_CARGO = { federal: "Deputado federal", estadual: "Deputado estadual (distrital no DF)", vereador: "Vereador" };
 
+  // Eleições: todas as que têm dados, da mais recente para a mais antiga.
   function preencherAnos() {
-    const atual = el.ano.value;
-    const anos = Object.keys(indiceDo(cargoAtual())).sort().reverse();
-    anoMaisRecente = anos[0];
-    el.ano.innerHTML = anos.map((a) => `<option value="${a}">Eleição ${a}</option>`).join("");
-    if (anos.includes(atual)) el.ano.value = atual;
+    const anos = [...new Set(["federal", "estadual", "vereador"].flatMap((c) => Object.keys(indiceDo(c))))].sort().reverse();
+    el.ano.innerHTML = anos.map((a) => `<option value="${a}">Eleição ${a} · ${municipal(a) ? "vereadores" : "deputados"}</option>`).join("");
+    el.ano.value = anoMaisRecenteDo("federal") || anos[0];
     el.ano.hidden = anos.length < 2;
+  }
+
+  // Cargos da eleição escolhida (municipal: vereador; geral: deputado federal e estadual).
+  function preencherCargos() {
+    const atual = cargoAtual(), ano = el.ano.value;
+    const cargos = (municipal(ano) ? ["vereador"] : ["federal", "estadual"]).filter((c) => indiceDo(c)[ano]);
+    el.cargo.innerHTML = cargos.map((c) => `<option value="${c}">${NOMES_CARGO[c]}</option>`).join("");
+    el.cargo.value = cargos.includes(atual) ? atual : cargos[0];
+    el.cargo.disabled = cargos.length < 2;
+  }
+
+  async function indiceMunicipios(ano) {
+    if (!indicesMunicipios.has(ano)) {
+      const r = await fetch(url(`data/${ano}/vereador/index.json`), { cache: "no-cache" });
+      if (!r.ok) throw new Error(r.status);
+      indicesMunicipios.set(ano, await r.json());
+    }
+    return indicesMunicipios.get(ano);
+  }
+
+  // Lista de municípios do estado (só para vereador). "sem:" marca os que não têm votação nos dados do TSE.
+  async function preencherMunicipios() {
+    const uf = el.uf.value, ano = el.ano.value;
+    if (cargoAtual() !== "vereador" || !uf) { el.municipio.hidden = true; el.municipio.innerHTML = ""; return; }
+    const atual = el.municipio.value;
+    let idx;
+    try { idx = await indiceMunicipios(ano); } catch (e) { aviso("Não foi possível carregar a lista de municípios. Verifique a conexão e tente de novo."); return; }
+    const lista = (idx[uf] || []).map(([cod, nome]) => [cod, nome])
+      .concat(((idx.semDados || {})[uf] || []).map(([cod, nome]) => [`sem:${cod}`, `${nome} (sem dados)`]))
+      .sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
+    el.municipio.innerHTML = '<option value="">Escolha o município…</option>' +
+      lista.map(([cod, nome]) => `<option value="${esc(cod)}">${esc(nome)}</option>`).join("");
+    if (lista.some(([cod]) => cod === atual)) el.municipio.value = atual;
+    el.municipio.hidden = false;
   }
 
   // Textos do quiz que dependem do cargo (com o estado escolhido, "distrital" no DF).
@@ -84,7 +126,7 @@
     const nome = nomeCargo({ cargo, uf: el.uf.value });
     if (el.legendaTipo) el.legendaTipo.textContent = `Como você votou para ${nome}?`;
     if (el.descCandidato) el.descCandidato.textContent = `Digitei o número de ${DIGITOS[cargo]} dígitos`;
-    el.busca.placeholder = `Ex.: Maria ou ${cargo === "federal" ? "1234" : "12345"}`;
+    el.busca.placeholder = `Ex.: Maria ou ${DIGITOS[cargo] === 4 ? "1234" : "12345"}`;
   }
 
   async function iniciar() {
@@ -97,8 +139,8 @@
       el.uf.disabled = true;
       return;
     }
-    if (el.cargo && !indice.estadual) el.cargo.hidden = true;
     preencherAnos();
+    preencherCargos();
     preencherUFs();
     atualizarTextosCargo();
     await abrirRota(lerRota());
@@ -117,8 +159,19 @@
     const uf = el.uf.value, ano = el.ano.value, cargo = cargoAtual();
     el.resultado.hidden = true;
     atualizarTextosCargo();
-    if (!uf) { dados = null; el.passoTipo.disabled = true; mostrarResumoUF(); atualizarRota(); return false; }
-    const chave = `${ano}/${cargo === "federal" ? "" : cargo + "/"}${uf}`;
+    const semDados = () => { dados = null; el.passoTipo.disabled = true; mostrarResumoUF(); };
+    if (!uf) { semDados(); atualizarRota(); return false; }
+    let chave = `${ano}/${cargo === "federal" ? "" : cargo + "/"}${uf}`;
+    if (cargo === "vereador") {
+      const cod = el.municipio.value;
+      if (!cod) { semDados(); aviso(""); atualizarRota(); return false; }
+      if (cod.startsWith("sem:")) {
+        semDados();
+        aviso(`O TSE não publicou a votação de vereador de ${esc(el.municipio.selectedOptions[0].textContent.replace(" (sem dados)", ""))} em ${esc(ano)} nos dados abertos.`);
+        return false;
+      }
+      chave += "/" + cod;
+    }
     try {
       if (!cache.has(chave)) {
         // "no-cache" = revalida com o servidor (304 se nada mudou), para nunca misturar
@@ -127,11 +180,14 @@
         if (!r.ok) throw new Error(r.status);
         const d = await r.json();
         d.cargo = cargo;
+        d.uf = uf;
+        // os arquivos de vereador vêm sem o campo de busca (para ficarem menores)
+        for (const c of d.candidatos) if (!c.busca) c.busca = semAcento(`${c.nome} ${c.n} ${c.partido}`);
         cache.set(chave, d);
       }
     } catch (e) {
-      aviso("Não foi possível carregar os dados deste estado. Verifique a conexão e tente de novo.");
-      dados = null; el.passoTipo.disabled = true; mostrarResumoUF();
+      aviso(`Não foi possível carregar os dados deste ${cargo === "vereador" ? "município" : "estado"}. Verifique a conexão e tente de novo.`);
+      semDados();
       return false;
     }
     aviso("");
@@ -155,7 +211,7 @@
     const item = (rotulo, valor, nota) =>
       `<div class="item"><dt>${rotulo}</dt><dd><span class="valor">${valor}</span>${nota ? `<span class="nota">${nota}</span>` : ""}</dd></div>`;
     el.resumoUF.innerHTML =
-      `<p class="titulo-resumo">${esc(maiuscula(emUF(dados.uf)))}, ${nomeCargo(dados)}, eleição ${esc(dados.ano)}</p><dl>` +
+      `<p class="titulo-resumo">${esc(maiuscula(ondeDe(dados)))}${dados.cargo === "vereador" ? ` (${dados.uf})` : ""}, ${nomeCargo(dados)}, eleição ${esc(dados.ano)}</p><dl>` +
       item("Vagas", fmt.format(dados.vagas)) +
       item("Votos válidos", fmt.format(dados.validos)) +
       item("Quociente eleitoral", `${fmt.format(Math.round(qe))} votos`,
@@ -208,30 +264,45 @@
     if (!partes.length) return null;
     const rota = {};
     if (/^\d{4}$/.test(partes[0])) rota.ano = partes.shift();
-    if (/^(estadual|distrital)$/i.test(partes[0] || "")) { rota.cargo = "estadual"; partes.shift(); }
+    if (/^(estadual|distrital|vereador)$/i.test(partes[0] || "")) rota.cargo = /^vereador$/i.test(partes.shift()) ? "vereador" : "estadual";
     if (!partes.length) return rota;
     rota.uf = partes.shift().toUpperCase();
+    // vereador: /2024/vereador/SP/campinas/13133 (ou, mais curto, /SP/campinas/13133)
+    if (rota.cargo === "vereador" || (rota.ano && municipal(rota.ano)) || (!rota.cargo && partes.length >= 2)) {
+      rota.cargo = "vereador";
+      if (partes.length) rota.municipio = partes.shift();
+    }
     if (partes.length) rota.voto = partes.shift();
-    if (!rota.cargo && /^\d{5}$/.test(rota.voto || "")) rota.cargo = "estadual"; // só estadual tem 5 dígitos
+    if (!rota.cargo && /^\d{5}$/.test(rota.voto || "")) rota.cargo = "estadual"; // em eleição geral, só estadual tem 5 dígitos
     return rota;
   }
 
   async function abrirRota(rota) {
     if (!rota) return;
-    if (el.cargo && rota.cargo && indice[rota.cargo]) { el.cargo.value = rota.cargo; preencherAnos(); }
-    const idx = indiceDo(cargoAtual());
-    const ano = rota.ano || anoMaisRecente;
-    if (!idx[ano]) { aviso(`Não temos dados da eleição de ${esc(ano)}.`); return; }
+    const cargo = rota.cargo || "federal";
+    const ano = rota.ano || anoMaisRecenteDo(cargo);
+    const idx = indiceDo(cargo);
+    if (!idx[ano]) { aviso(`Não temos dados de ${NOMES_CARGO[cargo].toLowerCase()} na eleição de ${esc(ano || "")}.`); return; }
     el.ano.value = ano;
+    preencherCargos();
+    el.cargo.value = cargo;
     preencherUFs();
     atualizarTextosCargo();
     if (!rota.uf) return;
     if (!idx[ano].includes(rota.uf)) { aviso(`Não encontramos o estado “${esc(rota.uf)}”. Use a sigla, como MA ou SP.`); return; }
     el.uf.value = rota.uf;
+    if (cargo === "vereador") {
+      await preencherMunicipios();
+      if (!rota.municipio) { atualizarRota(); return; }
+      const alvo = slug(rota.municipio);
+      const op = [...el.municipio.options].find((o) => o.value && (o.value.replace("sem:", "") === rota.municipio || slug(o.textContent.replace(" (sem dados)", "")) === alvo));
+      if (!op) { aviso(`Não encontramos o município “${esc(rota.municipio)}” ${emUF(rota.uf)}.`); return; }
+      el.municipio.value = op.value;
+    }
     if (!(await carregarUF({ automatico: true }))) return;
     const v = rota.voto;
     if (!v) { atualizarRota(); return; }
-    const naoAchou = (o) => aviso(`Não encontramos ${o} ${emUF(rota.uf)} em ${ano}. Escolha abaixo como você votou.`);
+    const naoAchou = (o) => aviso(`Não encontramos ${o} ${ondeDe(dados)} em ${ano}. Escolha abaixo como você votou.`);
     if (/^(branco|nulo)$/i.test(v)) {
       marcarTipo(v.toLowerCase());
       mostrar({ tipo: v.toLowerCase() });
@@ -252,7 +323,9 @@
 
   function rotaAtual(escolha) {
     if (!dados) return "";
-    let r = (el.ano.value !== anoMaisRecente ? el.ano.value + "/" : "") + (dados.cargo === "estadual" ? "estadual/" : "") + dados.uf;
+    let r = dados.cargo === "vereador"
+      ? `${dados.ano}/vereador/${dados.uf}/${slug(dados.municipio)}`
+      : (String(dados.ano) !== anoMaisRecenteDo(dados.cargo) ? dados.ano + "/" : "") + (dados.cargo === "estadual" ? "estadual/" : "") + dados.uf;
     if (escolha) {
       if (escolha.tipo === "candidato") r += "/" + escolha.numero;
       else if (escolha.tipo === "legenda") r += "/" + numeroDoPartido(escolha.partido);
@@ -284,7 +357,7 @@
   }
 
   function textoCompartilhar(r, escolha) {
-    const onde = `${emUF(dados.uf)} em ${dados.ano}`;
+    const onde = `${ondeDe(dados)} em ${dados.ano}`;
     if (r.tipo === "branco" || r.tipo === "nulo") {
       return `Votei ${r.tipo === "branco" ? "em branco" : "nulo"} para ${nomeCargo(dados)} ${onde}: meu voto não foi para ninguém. Descubra para onde foi o seu:`;
     }
@@ -352,7 +425,7 @@
     const g = r.grupo;
     const eFed = g && g.id[0] === "F";
     const spec = {
-      kicker: `${maiuscula(nomeCargo(dados))} · ${NOMES_UF[dados.uf]} · ${dados.ano}`,
+      kicker: `${maiuscula(nomeCargo(dados))} · ${localDe(dados)} · ${dados.ano}`,
       endereco: BASE.host + BASE.pathname.replace(/\/$/, ""),
       icone: url("img/favicon.svg"),
       partes: r.partes.map((p) => ({ nome: p.cand.nome, detalhe: p.cand.partido, pct: fmtPct(p.frac), frac: p.frac })),
@@ -362,13 +435,13 @@
       const qtd = r.tipo === "branco" ? dados.brancos : dados.nulos;
       spec.destaque = r.tipo === "branco" ? "Votei em branco" : "Votei nulo";
       spec.frase = `Meu voto não foi para ninguém: votos ${r.tipo === "branco" ? "em branco" : "nulos"} não vão para nenhum candidato nem partido.`;
-      spec.numero = { valor: fmt.format(qtd), rotulo: `eleitores votaram ${r.tipo === "branco" ? "em branco" : "nulo"} ${emUF(dados.uf)}.` };
+      spec.numero = { valor: fmt.format(qtd), rotulo: `eleitores votaram ${r.tipo === "branco" ? "em branco" : "nulo"} ${ondeDe(dados)}.` };
       return spec;
     }
     const c = r.candidato;
     spec.destaque = r.tipo === "candidato" ? `Votei em ${c.nome} (${c.partido})` : `Votei na legenda ${escolha.partido}`;
     if (!r.partes.length) {
-      spec.frase = `${eFed ? "A federação" : "O partido"} ${g.sigla} não conquistou vagas ${emUF(dados.uf)}, então meu voto não elegeu ninguém.`;
+      spec.frase = `${eFed ? "A federação" : "O partido"} ${g.sigla} não conquistou vagas ${ondeDe(dados)}, então meu voto não elegeu ninguém.`;
       spec.numero = { valor: fmt.format(r.analise.total), rotulo: `votos ${eFed ? "da federação" : "do partido"}, para um quociente eleitoral de ${fmt.format(Math.round(Motor.quocienteEleitoral(dados)))}.` };
       return spec;
     }
@@ -497,11 +570,11 @@
   function mostrar(escolha) {
     const r = Motor.atribuir(dados, escolha);
     const qe = Motor.quocienteEleitoral(dados);
-    const nomeUF = NOMES_UF[dados.uf];
+    const nomeUF = localDe(dados);
     let html = "", titulo;
 
     if (r.tipo === "branco" || r.tipo === "nulo") {
-      titulo = r.tipo === "branco" ? `Voto em branco ${emUF(dados.uf)}` : `Voto nulo ${emUF(dados.uf)}`;
+      titulo = r.tipo === "branco" ? `Voto em branco ${ondeDe(dados)}` : `Voto nulo ${ondeDe(dados)}`;
       const qtd = r.tipo === "branco" ? dados.brancos : dados.nulos;
       const qeSem = dados.validos / dados.vagas;
       const qeCom = (dados.validos + dados.brancos + dados.nulos) / dados.vagas;
@@ -509,7 +582,7 @@
         <p class="kicker">${maiuscula(nomeCargo(dados))} · ${nomeUF} · ${dados.ano}</p>
         <h2>Seu voto não ajudou a eleger ninguém</h2>
         <p class="grande">Votos ${r.tipo === "branco" ? "em branco" : "nulos"} não vão para nenhum candidato nem partido.
-          ${maiuscula(emUF(dados.uf))}, <strong>${fmt.format(qtd)}</strong> eleitores votaram ${r.tipo === "branco" ? "em branco" : "nulo"} para ${nomeCargo(dados)}.</p>
+          ${maiuscula(ondeDe(dados))}, <strong>${fmt.format(qtd)}</strong> eleitores votaram ${r.tipo === "branco" ? "em branco" : "nulo"} para ${nomeCargo(dados)}.</p>
         <div class="numeros">
           ${numero("Votos válidos", fmt.format(dados.validos))}
           ${numero("Brancos", fmt.format(dados.brancos))}
@@ -539,7 +612,7 @@
           ? `${esc(r.candidato.nome)} não foi ${gen(r.candidato, "eleito", "eleita")}. Seu voto contou ${nomeGrupo.para}`
           : `Seu voto foi ${nomeGrupo.para}`;
         html += `
-          <p class="grande">${inicio}, que <strong>não elegeu ninguém</strong> ${emUF(dados.uf)}.</p>
+          <p class="grande">${inicio}, que <strong>não elegeu ninguém</strong> ${ondeDe(dados)}.</p>
           <p>${eFed ? "A federação" : "O partido"} teve ${fmt.format(a.total)} votos, contra um quociente eleitoral de
             ${fmt.format(Math.round(qe))}. O voto foi válido e contou para o total ${eFed ? "da federação" : "do partido"}, mas não se converteu em cadeira.</p>`;
       } else {
@@ -630,7 +703,7 @@
     const eleitos = partes.map((p) => p.cand);
     return inicio + (n === 1
       ? `Ele ajudou a eleger <strong>${esc(partes[0].cand.nome)}</strong>.`
-      : `Ele foi repartido entre <strong>${n} ${todasMulheres(eleitos) ? "deputadas eleitas" : "deputados eleitos"}</strong> que precisavam de votos além dos próprios.`) +
+      : `Ele foi repartido entre <strong>${n} ${todasMulheres(eleitos) ? (dados.cargo === "vereador" ? "vereadoras eleitas" : "deputadas eleitas") : (dados.cargo === "vereador" ? "vereadores eleitos" : "deputados eleitos")}</strong> que precisavam de votos além dos próprios.`) +
       (s ? ` Desse voto, <strong>${fmtPct(s)}</strong> foi para a sobra ${nomeGrupo.de} e não elegeu ninguém.` : "");
   }
 
@@ -639,7 +712,7 @@
   function explicacaoSobra(a, eFed, qe) {
     const quem = eFed ? "A federação" : "O partido", k = a.eleitos.length;
     let t = `${quem} teve ${fmt.format(a.total)} votos e usou ${fmt.format(Math.round(a.custo * k))} ${k === 1 ? "na vaga conquistada" : `nas ${k} vagas conquistadas`}. ` +
-      `Os outros ${fmt.format(Math.round(a.sobra))} votos são a sobra: disputaram as últimas vagas do estado, mas não alcançaram mais uma cadeira.`;
+      `Os outros ${fmt.format(Math.round(a.sobra))} votos são a sobra: disputaram as últimas vagas, mas não alcançaram mais uma cadeira.`;
     if (a.vagasPeloQuociente > k) {
       t += ` Pelo quociente, ${eFed ? "a federação" : "o partido"} tinha votos para ${a.vagasPeloQuociente} vagas, mas ficou com ${k}: ` +
         `os outros candidatos não chegaram a 10% do quociente (${fmt.format(Math.round(qe * 0.1))} votos), o mínimo para ocupar uma vaga.`;
@@ -665,15 +738,17 @@
       return `<tr${e.cand === cand ? ' class="seu"' : ""}><td>${esc(e.cand.nome)}</td><td>${esc(e.cand.partido)}</td>
         <td class="r">${fmt.format(e.cand.v)}</td><td>${situacao}</td></tr>`;
     }).join("");
-    return `<details class="eleitos"><summary>Todos os eleitos de ${esc(a.grupo.sigla)} ${emUF(dados.uf)}</summary>
+    return `<details class="eleitos"><summary>Todos os eleitos de ${esc(a.grupo.sigla)} ${ondeDe(dados)}</summary>
       <div class="tabela"><table><thead><tr><th>Eleito(a)</th><th>Partido</th><th class="r">Votos próprios</th><th>No modelo</th></tr></thead>
       <tbody>${linhas}</tbody></table></div></details>`;
   }
 
   // ---------- eventos ----------
-  el.ano.addEventListener("change", () => { preencherUFs(); carregarUF(); });
-  if (el.cargo) el.cargo.addEventListener("change", () => { preencherAnos(); preencherUFs(); carregarUF(); });
-  el.uf.addEventListener("change", () => carregarUF());
+  const recarregar = async () => { await preencherMunicipios(); carregarUF(); };
+  el.ano.addEventListener("change", () => { preencherCargos(); preencherUFs(); recarregar(); });
+  el.cargo.addEventListener("change", () => { preencherUFs(); recarregar(); });
+  el.uf.addEventListener("change", () => { el.municipio.value = ""; recarregar(); });
+  el.municipio.addEventListener("change", () => carregarUF());
   document.querySelectorAll('input[name="tipo"]').forEach((r) => r.addEventListener("change", mudarTipo));
   el.partido.addEventListener("change", () => el.partido.value && mostrar({ tipo: "legenda", partido: el.partido.value }));
   el.busca.addEventListener("input", buscar);

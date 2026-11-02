@@ -71,7 +71,7 @@ select, input[type="search"] {
   font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
   border-radius: 10px; padding: 10px 12px; min-height: 44px; width: 100%; max-width: 360px;
 }
-.linha select { flex: 1 1 200px; }
+.linha select { flex: 1 1 160px; }
 select:focus-visible, input:focus-visible, .opcao:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* resumo do estado (passo 1) */
