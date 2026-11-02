@@ -9,6 +9,7 @@ Abertos do TSE para cada ano:
   - votacao_candidato_munzona_<ano>.zip  -> votos nominais e situação de cada candidato
   - votacao_partido_munzona_<ano>.zip    -> votos de legenda de cada partido
   - detalhe_votacao_munzona_<ano>.zip    -> brancos, nulos, comparecimento
+  - consulta_cand_<ano>.zip              -> gênero declarado (concordância no texto)
 
 Os arquivos são somados por UF (todas as zonas/municípios) e reduzidos a um JSON
 pequeno por estado, que é o que o site lê.
@@ -111,7 +112,14 @@ def eh_dep_fed(row) -> bool:
     return col(row, "CD_CARGO", default="") == CARGO_DEP_FED and col(row, "NR_TURNO", default="1") == "1"
 
 
+def generos(zip_path: Path, uf: str) -> dict[str, bool]:
+    """SQ_CANDIDATO -> True se o gênero declarado ao TSE é feminino."""
+    return {row["SQ_CANDIDATO"]: row.get("DS_GENERO", "").strip().upper() == "FEMININO"
+            for row in linhas(zip_path, uf) if col(row, "CD_CARGO", default="") == CARGO_DEP_FED}
+
+
 def processar(ano: int, uf: str, zips: dict) -> dict | None:
+    feminino = generos(zips["cand_info"], uf)
     cands: dict[str, dict] = {}
     grupos: dict[str, dict] = {}
     partidos_legenda = defaultdict(int)
@@ -140,6 +148,8 @@ def processar(ano: int, uf: str, zips: dict) -> dict | None:
                 "eleito": situacao.startswith("ELEITO"),
                 "sit": situacao.title(),
             }
+            if feminino.get(sq):
+                c["f"] = 1
         c["v"] += votos
 
     if not cands:
@@ -208,6 +218,7 @@ def main(anos):
             "cand": baixar("votacao_candidato_munzona", ano),
             "partido": baixar("votacao_partido_munzona", ano),
             "detalhe": baixar("detalhe_votacao_munzona", ano),
+            "cand_info": baixar("consulta_cand", ano),
         }
         pasta = ROOT / "data" / str(ano)
         pasta.mkdir(parents=True, exist_ok=True)

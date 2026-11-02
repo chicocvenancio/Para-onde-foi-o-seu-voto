@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Para Onde Foi Meu Voto</title>
+  <script>
+    // O GitHub Pages só serve arquivos que existem. Links como /MA/1301 ou /2022/SP/5010
+    // caem aqui; mandamos para a página principal com a rota em ?v=, e o app.js
+    // abre o resultado e devolve o endereço original para a barra do navegador.
+    (function () {
+      var m = location.pathname.match(/^(.*?\/)((?:\d{4}\/)?[A-Za-z]{2}(?:\/[^\/]+)?)\/?$/);
+      if (m) location.replace(m[1] + "?v=" + encodeURIComponent(decodeURIComponent(m[2])) + location.hash);
+    })();
+  </script>
+  <style>
+    body { font: 17px/1.5 system-ui, sans-serif; margin: 0; padding: 48px 16px; background: #f6f5f1; color: #1d1f24; }
+    a { color: #0b6e4f; }
+    @media (prefers-color-scheme: dark) { body { background: #14161a; color: #eceae4; } a { color: #4cc39a; } }
+  </style>
+</head>
+<body>
+  <p>Página não encontrada.</p>
+  <p><a id="inicio" href="/">Ir para o início do site</a></p>
+  <script>
+    // No GitHub Pages de projeto o site fica em /<repositório>/.
+    var s = location.pathname.split("/")[1];
+    if (/\.github\.io$/.test(location.hostname) && s) document.getElementById("inicio").href = "/" + s + "/";
+  </script>
+</body>
+</html>
