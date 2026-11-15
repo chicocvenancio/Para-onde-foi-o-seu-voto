@@ -240,6 +240,7 @@
         d.uf = uf;
         // os arquivos de vereador vêm sem o campo de busca (para ficarem menores)
         for (const c of d.candidatos) if (!c.busca) c.busca = semAcento(`${c.nome} ${c.n} ${c.partido}`);
+        d.sobras = Motor.sobras(d);
         cache.set(chave, d);
       }
     } catch (e) {
@@ -275,8 +276,31 @@
         "votos válidos ÷ vagas: o “preço” aproximado de uma cadeira para o partido ou federação") +
       item("Mínimo individual", `${fmt.format(Math.round(qe * 0.1))} votos`,
         "10% do quociente: o candidato precisa disso para ficar com uma vaga do partido") +
-      "</dl>";
+      item("Vagas nas sobras", `${fmt.format(dados.sobras.vagas.length)} de ${fmt.format(dados.vagas)}`,
+        dados.sobras.vagas.length ? `distribuídas pelas maiores médias; a menor que levou vaga foi ${fmt.format(Math.round(dados.sobras.menorMedia))} votos`
+          : "todas as vagas saíram pelo quociente partidário") +
+      "</dl>" + tabelaSobras();
     el.resumoUF.hidden = false;
+  }
+
+  // Quem levou as vagas das sobras: média de cada partido/federação na disputa e
+  // os eleitos que entraram por ela.
+  function tabelaSobras() {
+    const s = dados.sobras;
+    if (!s.vagas.length) return "";
+    const linhas = s.grupos.filter((x) => x.total > 0).sort((a, b) => b.media - a.media).map((x) => {
+      const g = x.grupo;
+      const eleitos = x.porMedia.map((v) => `${esc(v.cand.nome)} <span class="sub">média ${fmt.format(Math.round(v.media))}</span>`).join("<br>");
+      return `<tr${x.porMedia.length ? ' class="levou"' : ""}><td>${esc(g.sigla)}</td><td class="r">${fmt.format(x.total)}</td>
+        <td class="r">${x.vagasQP}</td><td class="r">${fmt.format(Math.round(x.media))}</td><td>${eleitos || "—"}</td></tr>`;
+    }).join("");
+    return `<details class="sobras"><summary>Quem foi eleito nas sobras (${s.vagas.length} ${s.vagas.length === 1 ? "vaga" : "vagas"})</summary>
+      <p class="nota">Depois das vagas do quociente partidário, as restantes vão, uma a uma, para a maior <strong>média</strong>:
+        votos do partido ÷ (vagas que ele já tem + 1). Quem leva uma vaga tem a média recalculada para a próxima.
+        Nem todo partido pode disputar as sobras: há exigências mínimas de votos do partido e do candidato, que mudaram em 2021
+        e foram revistas pelo STF em 2024, por isso um partido com média alta pode ter ficado de fora.</p>
+      <div class="tabela"><table><thead><tr><th>Partido/federação</th><th class="r">Votos</th><th class="r">Vagas pelo quociente</th>
+        <th class="r">Média na 1ª sobra</th><th>Eleitos nas sobras</th></tr></thead><tbody>${linhas}</tbody></table></div></details>`;
   }
 
   function tipoAtual() {
@@ -654,7 +678,7 @@
         <p class="mito"><strong>Mito:</strong> “se a maioria votar nulo, a eleição é anulada”. Não é verdade —
           a anulação prevista em lei é para votos anulados pela Justiça Eleitoral (por fraude, por exemplo), não para o voto nulo do eleitor.</p>`;
     } else {
-      const g = r.grupo, a = r.analise;
+      const g = r.grupo, a = r.analise, sg = dados.sobras.porGrupo.get(g.id);
       titulo = r.tipo === "candidato" ? `${r.candidato.nome} (${r.candidato.n})` : `Legenda ${escolha.partido}`;
       const cabecalho = r.tipo === "candidato"
         ? `${esc(r.candidato.nome)} <span class="sub">${esc(r.candidato.n)} · ${esc(r.candidato.partido)}</span>`
@@ -664,6 +688,14 @@
       const nomeGrupo = { de: (eFed ? "da " : "do ") + desc, para: (eFed ? "para a " : "para o ") + desc };
 
       html = `<p class="kicker">${maiuscula(nomeCargo(dados, r.candidato))} · ${nomeUF} · ${dados.ano}</p><h2>${cabecalho}</h2>`;
+      const vagaSobra = r.candidato && dados.sobras.porCandidato.get(r.candidato);
+      if (vagaSobra) {
+        const c = r.candidato;
+        html += `<p class="selo-sobras"><span class="selo">${gen(c, "Eleito", "Eleita")} nas sobras</span>
+          ${esc(c.nome)} ocupou uma vaga distribuída pelas maiores médias, não pelo quociente partidário:
+          ${eFed ? "a federação" : "o partido"} já tinha ${sg.vagasQP} ${sg.vagasQP === 1 ? "vaga" : "vagas"} pelo quociente e levou esta com média de
+          <strong>${fmt.format(Math.round(vagaSobra.media))}</strong> votos (${fmt.format(a.total)} ÷ ${fmt.format(Math.round(a.total / vagaSobra.media))}).</p>`;
+      }
 
       if (!r.partes.length) {
         const inicio = r.tipo === "candidato"
@@ -678,7 +710,7 @@
         html += barra(r.partes, r.sobra);
         html += `<ol class="lista">${r.partes.map((p, i) => `
           <li><span class="cor" style="--i:${i}"></span>
-            <span class="nome">${esc(p.cand.nome)} <span class="sub">${esc(p.cand.partido)} · ${fmt.format(p.cand.v)} votos</span></span>
+            <span class="nome">${esc(p.cand.nome)} <span class="sub">${esc(p.cand.partido)} · ${fmt.format(p.cand.v)} votos${dados.sobras.porCandidato.has(p.cand) ? ` · ${gen(p.cand, "eleito", "eleita")} nas sobras` : ""}</span></span>
             <span class="pct">${fmtPct(p.frac)}</span></li>`).join("")}${r.sobra ? `
           <li class="item-sobra"><span class="cor sobra"></span>
             <span class="nome">Sobra ${nomeGrupo.de} <span class="sub">não elegeu ninguém</span></span>
@@ -691,7 +723,11 @@
           ${numero("Quociente eleitoral", fmt.format(Math.round(qe)), "votos válidos ÷ vagas")}
           ${numero(eFed ? "Votos da federação" : "Votos do partido", fmt.format(a.total),
                    `${fmt.format(g.nominais)} nominais + ${fmt.format(g.legenda)} de legenda`)}
-          ${numero("Vagas conquistadas", `${g.vagas} de ${dados.vagas}`)}
+          ${numero("Vagas conquistadas", `${g.vagas} de ${dados.vagas}`,
+                   g.vagas ? `${sg.vagasQP} pelo quociente partidário, ${sg.porMedia.length} nas sobras` : "")}
+          ${numero("Média nas sobras", fmt.format(Math.round(sg.media)),
+                   `votos ÷ (${sg.vagasQP} ${sg.vagasQP === 1 ? "vaga" : "vagas"} pelo quociente + 1)` +
+                   (dados.sobras.vagas.length ? `; a menor média que levou vaga foi ${fmt.format(Math.round(dados.sobras.menorMedia))}` : ""))}
           ${a.custo ? numero("Custo de cada vaga", fmt.format(Math.round(a.custo)),
                    a.custo < qe - 0.5 ? `${eFed ? "votos da federação" : "votos do partido"} ÷ vagas (abaixo do quociente: vaga nas sobras)` : "o quociente eleitoral") : ""}
           ${a.eleitos.length && a.sobra > 0.5 ? numero("Sobra", fmt.format(Math.round(a.sobra)),
@@ -793,11 +829,13 @@
       const situacao = e.excedente > 0.5 ? `teve ${fmt.format(Math.round(e.excedente))} votos além do custo da vaga`
                      : e.deficit > 0.5 ? `precisou de ${fmt.format(Math.round(e.deficit))} votos de colegas e legenda`
                      : "usou só os próprios votos";
-      return `<tr${e.cand === cand ? ' class="seu"' : ""}><td>${esc(e.cand.nome)}</td><td>${esc(e.cand.partido)}</td>
+      const media = dados.sobras.porCandidato.get(e.cand);
+      const vaga = media ? `sobras <span class="sub">média ${fmt.format(Math.round(media.media))}</span>` : "quociente";
+      return `<tr${e.cand === cand ? ' class="seu"' : ""}><td>${esc(e.cand.nome)}</td><td>${esc(e.cand.partido)}</td><td>${vaga}</td>
         <td class="r">${fmt.format(e.cand.v)}</td><td>${situacao}</td></tr>`;
     }).join("");
     return `<details class="eleitos"><summary>Todos os eleitos de ${esc(a.grupo.sigla)} ${ondeDe(dados)}</summary>
-      <div class="tabela"><table><thead><tr><th>Eleito(a)</th><th>Partido</th><th class="r">Votos próprios</th><th>No modelo</th></tr></thead>
+      <div class="tabela"><table><thead><tr><th>Eleito(a)</th><th>Partido</th><th>Vaga</th><th class="r">Votos próprios</th><th>No modelo</th></tr></thead>
       <tbody>${linhas}</tbody></table></div></details>`;
   }
 

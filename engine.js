@@ -50,6 +50,35 @@
     return { grupo, total, qe, custo, eleitos: lista, deficitTotal, resto, sobra, vagasPeloQuociente };
   }
 
+  /**
+   * Vagas das sobras: quais eleitos ocuparam vagas distribuídas pelas maiores médias.
+   * Cada partido/federação fica primeiro com as vagas do quociente partidário
+   * (votos ÷ QE, sem a fração), limitadas ao número de candidatos com pelo menos 10%
+   * do QE; os eleitos além disso, na ordem de votos, entraram nas sobras. A média com
+   * que o partido disputou a j-ésima vaga das sobras é votos ÷ (vagas pelo quociente + j).
+   * Confere com a situação do TSE ("Eleito por QP" / "Eleito por média") em 2022 e 2026.
+   */
+  function sobras(dados) {
+    const qe = quocienteEleitoral(dados);
+    const grupos = dados.grupos.map((g) => {
+      const total = g.nominais + g.legenda;
+      const membros = dados.candidatos.filter((c) => c.g === g.id).sort((a, b) => b.v - a.v);
+      const aptos = membros.filter((c) => c.v >= qe * 0.1).length;
+      const eleitos = membros.filter((c) => c.eleito);
+      const vagasQP = Math.min(qe ? Math.floor(total / qe) : 0, aptos, eleitos.length);
+      const porMedia = eleitos.slice(vagasQP).map((cand, j) => ({ cand, media: total / (vagasQP + j + 1) }));
+      return { grupo: g, total, vagasQP, porMedia, media: total / (vagasQP + 1) };
+    });
+    const vagas = grupos.flatMap((x) => x.porMedia).sort((a, b) => b.media - a.media);
+    return {
+      grupos,
+      porGrupo: new Map(grupos.map((x) => [x.grupo.id, x])),
+      vagas,
+      porCandidato: new Map(vagas.map((v) => [v.cand, v])),
+      menorMedia: vagas.length ? vagas[vagas.length - 1].media : 0,
+    };
+  }
+
   // Reparte "peso" do resto: parte completa os eleitos com déficit, parte vai para a sobra.
   function repartir(analise, peso, destino) {
     if (peso <= 0 || analise.resto <= 0) return 0;
@@ -106,7 +135,7 @@
     return { tipo: escolha.tipo, grupo: analise.grupo, analise, partes, sobra: sobra > 1e-12 ? sobra : 0, candidato };
   }
 
-  const api = { atribuir, analisarGrupo, quocienteEleitoral };
+  const api = { atribuir, analisarGrupo, quocienteEleitoral, sobras };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else global.Motor = api;
 })(typeof window !== "undefined" ? window : globalThis);

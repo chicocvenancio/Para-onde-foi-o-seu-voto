@@ -155,3 +155,34 @@ test("vereador (Campinas 2024): dados por município, soma 100%; municípios sem
   }
   assert.ok((idx.semDados.PA || []).some(([, nome]) => nome === "Ananindeua"), "Ananindeua sem dados em 2024");
 });
+
+test("vagas das sobras: quem passou do quociente partidário entrou pela média", () => {
+  const s = Motor.sobras(dados);
+  const a = s.porGrupo.get("PA"), b = s.porGrupo.get("PB");
+  assert.strictEqual(a.vagasQP, 2);
+  assert.strictEqual(a.porMedia.length, 0);
+  perto(a.media, 700 / 3, "média do partido A");
+  assert.strictEqual(b.vagasQP, 0);
+  assert.deepStrictEqual(b.porMedia.map((v) => v.cand.nome), ["Eleito B"]);
+  perto(b.porMedia[0].media, 300, "média da vaga de B");
+  perto(s.menorMedia, 300, "menor média que levou vaga");
+  assert.ok(s.porCandidato.has(dados.candidatos[3]));
+});
+
+test("vagas das sobras conferem com a situação do TSE (Eleito por QP / por média) em 2022 e 2026", () => {
+  const fs = require("node:fs");
+  const arquivos = (d) => fs.readdirSync(d, { withFileTypes: true })
+    .flatMap((e) => e.isDirectory() ? arquivos(path.join(d, e.name)) : e.name.endsWith(".json") ? [path.join(d, e.name)] : []);
+  let conferidos = 0;
+  for (const ano of ["2022", "2026"]) {
+    for (const f of arquivos(path.join(__dirname, "..", "data", ano))) {
+      const d = JSON.parse(fs.readFileSync(f, "utf8"));
+      const s = Motor.sobras(d);
+      for (const c of d.candidatos.filter((c) => c.eleito)) {
+        assert.strictEqual(s.porCandidato.has(c), c.sit === "Eleito Por Média", `${f}: ${c.nome} (${c.sit})`);
+        conferidos++;
+      }
+    }
+  }
+  assert.ok(conferidos > 3000);
+});

@@ -59,7 +59,7 @@ code { background: var(--accent-soft); padding: 0 .3em; border-radius: 4px; font
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 24px; margin-bottom: 24px; }
 
 /* quiz */
-.passo { display: grid; grid-template-columns: 32px 1fr; gap: 14px; border: 0; padding: 0; margin: 0 0 24px; min-width: 0; }
+.passo { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 14px; border: 0; padding: 0; margin: 0 0 24px; min-width: 0; }
 .passo:last-of-type { margin-bottom: 0; }
 .passo[disabled] { opacity: .45; }
 .num { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: var(--surface);
@@ -146,7 +146,7 @@ tr.seu td { background: var(--accent-soft); font-weight: 600; }
 
 @media (max-width: 520px) {
   .card { padding: 18px; }
-  .passo { grid-template-columns: 1fr; gap: 8px; }
+  .passo { grid-template-columns: minmax(0, 1fr); gap: 8px; }
 }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
@@ -176,3 +176,15 @@ tr.seu td { background: var(--accent-soft); font-weight: 600; }
 .linha .combo-municipio input { max-width: none; }
 .sugestoes li.mun { grid-template-columns: 1fr auto; }
 .sugestoes .obs { color: var(--muted); font-size: .85rem; }
+
+/* vagas das sobras */
+.resumo-uf details.sobras { margin-top: 12px; }
+.resumo-uf details.sobras .nota { display: block; margin: 8px 0 0; }
+.resumo-uf .tabela { margin-top: 8px; }
+.resumo-uf table { font-size: .85rem; }
+.resumo-uf tr:not(.levou) td { color: var(--muted); }
+.resumo-uf tr.levou td:first-child { font-weight: 700; }
+td .sub { color: var(--muted); font-size: .85em; white-space: nowrap; }
+.selo-sobras { background: var(--accent-soft); border-radius: 10px; padding: 10px 14px; margin: 0 0 16px; }
+.selo { display: inline-block; background: var(--accent); color: var(--surface); font-size: .78rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .03em; padding: 2px 8px; border-radius: 999px; margin-right: 6px; }
